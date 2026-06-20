@@ -7,11 +7,11 @@ Auto-detects the input file in the SAME FOLDER as this script:
     - Crime_Data*.csv   (the main LA crime dataset)
 
 The MO_CODES.csv lookup file is used ONLY to help assign the simplified
-crime `category` column (see step 4 below) — it is not loaded, merged,
-or otherwise referenced anywhere else, and none of its derived columns
-end up in the cleaned output. The cleaned dataset is fully self-contained
-and uses only columns present in the original crime data file from that
-point forward.
+crime `category` column (see step 4 below) — the lookup table itself is
+not loaded, merged, or otherwise referenced anywhere else. The raw
+`Mocodes` column from the original crime data IS kept as-is in the
+cleaned output (it's just an original column, never dropped), so it
+remains available for downstream MO-code feature engineering.
 
 No file paths or flags need to be passed in — just drop this script into
 the same folder as your CSV file(s) and run:
@@ -381,8 +381,10 @@ def categorize_data(df: pd.DataFrame, mo_code_to_cat: dict) -> pd.DataFrame:
     desc_col = df["crm_cd_desc"] if "crm_cd_desc" in df.columns else None
 
     # MO codes are consulted here ONLY as a transient hint to help resolve
-    # ambiguous cases; the raw Mocodes column and any MO lookup are not
-    # retained in the output afterwards.
+    # ambiguous category cases. The MO_CODES.csv lookup table itself is not
+    # merged into the dataset — but the raw `Mocodes` column from the
+    # original data IS kept as-is in the output (see main()), so it's
+    # available as a feature for downstream work.
     mo_hint = None
     mo_col = next((c for c in df.columns if "mocode" in c or c == "mocodes"), None)
     if mo_col and mo_code_to_cat:
@@ -393,9 +395,9 @@ def categorize_data(df: pd.DataFrame, mo_code_to_cat: dict) -> pd.DataFrame:
     print("  Crime 'category' assigned (Violent / Property / Sexual Assault / Vehicle / Other):")
     print(df["category"].value_counts().to_string())
     print(f"\n  Total columns after categorization : {df.shape[1]}")
-    print("  (No MO-code-derived columns are retained — 'category' is the only "
-          "new column added in this step, and the dataset from here on is "
-          "fully self-contained.)")
+    print("  ('category' is the only new column added in this step. The raw "
+          "'Mocodes' column from the original data is preserved as-is in the "
+          "output for downstream MO-code feature engineering.)")
     return df
 
 
@@ -421,13 +423,12 @@ def main():
     df = clean_data(df)
     df = categorize_data(df, mo_code_to_cat)
 
-    # Drop the raw Mocodes column from the final output — it was only ever
-    # needed transiently to help assign `category` above. From this point
-    # forward, the cleaned dataset uses only its own columns.
-    mo_col = next((c for c in df.columns if "mocode" in c or c == "mocodes"), None)
-    if mo_col:
-        df = df.drop(columns=[mo_col])
-        print(f"\n  Dropped raw '{mo_col}' column — not needed beyond category assignment.")
+    # NOTE: the raw Mocodes column is intentionally KEPT in the cleaned
+    # output (not dropped). It's still the original space-separated code
+    # string from the source data — useful as a feature on its own, and
+    # whoever owns feature engineering can parse it further downstream.
+    # We only ever used MO_CODES.csv transiently above to help assign
+    # `category`; that lookup itself is not merged into the dataset.
 
     out_csv = OUT_DIR / "la_crime_cleaned.csv"
     df.to_csv(out_csv, index=False)
