@@ -4,3 +4,5 @@ __pycache__/
 Crime_Data_from_2020_to_Present.csv
 MO_CODES.csv
 cleaned_data/
+data/processed/ # ignore the data folder
+data/processed/

@@ -182,6 +182,9 @@ MODEL_PARAMS = {
             "classifier__min_samples_split": [2, 10, 50],
             "classifier__min_samples_leaf":  [1, 5, 20],
             "classifier__criterion":         ["gini", "entropy"],
+            # Baseline stays unweighted (parity with XGBoost); tuning may pick
+            # 'balanced' if it lifts macro-F1 on the imbalanced rare classes.
+            "classifier__class_weight":      [None, "balanced"],
         },
     },
 

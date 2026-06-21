@@ -1,3 +1,5 @@
 model,accuracy,macro_precision,macro_recall,macro_f1,macro_roc_auc,log_loss,random_seed,model_key
 XGBoost (Baseline),0.6787396087953007,0.6298401653259335,0.4715734961317509,0.4841685976496228,0.8515790909346237,0.8298124175404223,42,xgboost
 "XGBoost (Tuned: {'classifier__learning_rate': 0.2, 'classifier__max_depth': 8, 'classifier__n_estimators': 400, 'classifier__subsample': 0.8})",0.6871287883324533,0.6364249495885281,0.4877459419855673,0.5067155595353978,0.8573326416934244,0.812061883013254,42,xgboost
+Decision Tree (Baseline),0.5668766229877674,0.42359363455366666,0.4277985698932872,0.42550272398058275,0.6528888998147252,15.592366075707247,42,decision_tree
+"Decision Tree (Tuned: {'classifier__class_weight': None, 'classifier__criterion': 'entropy', 'classifier__max_depth': None, 'classifier__min_samples_leaf': 5, 'classifier__min_samples_split': 50})",0.6478068909951059,0.5283540561363764,0.4527513227822372,0.46497086669470955,0.7825936053320641,2.9979374468987077,42,decision_tree
