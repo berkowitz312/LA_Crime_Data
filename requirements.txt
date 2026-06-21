@@ -1,3 +1,4 @@
+# ---- Core data / plotting ----
 contourpy==1.3.3
 cycler==0.12.1
 fonttools==4.63.0
@@ -11,3 +12,13 @@ pyparsing==3.3.2
 python-dateutil==2.9.0.post0
 seaborn==0.13.2
 six==1.17.0
+
+# ---- Modeling ----
+scikit-learn        # logistic regression, decision tree, random forest, preprocessing, metrics
+statsmodels         # MNLogit / VIF / influence diagnostics (logistic regression stats stage)
+xgboost             # gradient-boosted trees model
+shap                # SHAP explainability (TreeExplainer) for the XGBoost model
+# Neural network — pick ONE framework when implementing model_neural_network.py:
+# tensorflow        # Keras API
+# torch             # PyTorch
+joblib              # serialize trained models into each outputs/<model>_output/ folder
