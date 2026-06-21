@@ -1,67 +1,44 @@
 """
-config.py
-=========
-Central configuration for the LA Crime Data ML project.
-
-This is the single source of truth for:
-    * file paths           (raw dataset, processed CSVs, per-model output dirs, logs)
-    * reproducibility       (RANDOM_SEED)
-    * the modeling target   (TARGET_COLUMN)
-    * the train/test split  (TEST_SIZE, STRATIFY, CV_FOLDS)
-    * the feature catalogue (enable/disable EACH engineered feature individually)
-    * per-model hyperparameters (baseline settings + tuning grids)
-
-Every other script imports this module instead of hard-coding paths or settings.
-Scripts in `src/` and `models/` reach it with a small sys.path shim, e.g.:
-
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))  # models/*.py
-    import config as cfg
-
-(`src/*.py` use `Path(__file__).resolve().parent` instead.)
-
-All paths are derived from the project root, so the pipeline works regardless of the
-current working directory or the machine it runs on.
+Shared settings for the LA Crime project: paths, random seed, target, split,
+feature toggles, and per-model hyperparameters. Imported by every script so
+nothing is hard-coded. Paths are built from the project root, so location and
+working directory don't matter.
 """
 
 from pathlib import Path
 
 # =============================================================================
-# PATHS  (everything is relative to the project root, not the CWD)
+# PATHS
 # =============================================================================
 
-# This file lives in <root>/src/, so the project root is its parent's parent.
+# config.py lives in <root>/src/, so the root is two levels up.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # ---- Input data ----
 DATA_DIR      = PROJECT_ROOT / "data"
 RAW_DATA_PATH = DATA_DIR / "Crime_Data_from_2020_to_Present.csv"
 
-# Optional MO-codes lookup. Only a PDF ships with the project today, so this is
-# auto-detected (and treated as optional) by data_cleaning.py. If a CSV version
-# is ever added under data/ (or the project root) it will be picked up.
+# Optional MO-codes lookup, auto-detected by data_cleaning.py if present.
 MO_CODES_GLOBS = ["MO_CODES.csv", "mo_codes.csv", "*MO*CODE*.csv", "*mo*code*.csv"]
 
 # ---- Processed data (pipeline outputs that feed the models) ----
 PROCESSED_DIR      = DATA_DIR / "processed"
-CLEANED_DATA_PATH  = PROCESSED_DIR / "la_crime_cleaned.csv"     # data_cleaning.py output
-FEATURES_DATA_PATH = PROCESSED_DIR / "la_crime_features.csv"    # feature_engineering.py output
+CLEANED_DATA_PATH  = PROCESSED_DIR / "la_crime_cleaned.csv"     # from data_cleaning.py
+FEATURES_DATA_PATH = PROCESSED_DIR / "la_crime_features.csv"    # from feature_engineering.py
 
-# Shared train/test split indices — written by the first model that runs, then
-# reused by every other model so all 5 evaluate on the identical held-out rows.
+# Train/test split indices, written once and reused by every model so they all
+# evaluate on the same held-out rows.
 SPLIT_INDICES_PATH = PROCESSED_DIR / "train_test_split_indices.csv"
 
 # ---- Outputs ----
 OUTPUTS_DIR = PROJECT_ROOT / "outputs"
-EDA_DIR     = OUTPUTS_DIR / "eda_outputs"   # dataset_overview.py charts + heatmap.html
-LOG_DIR     = OUTPUTS_DIR / "logs"          # run logs (log_dir)
+EDA_DIR     = OUTPUTS_DIR / "eda_outputs"
+LOG_DIR     = OUTPUTS_DIR / "logs"
 
-# Shared comparison table — every model appends one row of metrics here.
+# Combined metrics table; each model appends its rows here.
 COMPARISON_SUMMARY_PATH = OUTPUTS_DIR / "model_comparison_summary.csv"
 
-# Per-model output folder (model_dir): each holds that model's plots, metric CSVs,
-# and serialized trained model — everything for one model in one place.
+# One output folder per model (plots, metric CSVs, saved model).
 MODEL_DIRS = {
     "logistic_regression": OUTPUTS_DIR / "logistic_regression_output",
     "decision_tree":       OUTPUTS_DIR / "decision_tree_output",
@@ -72,16 +49,13 @@ MODEL_DIRS = {
 
 
 def ensure_dir(path: Path) -> Path:
-    """Create `path` (and parents) if missing, then return it. Handy inline:
-        out = cfg.ensure_dir(cfg.MODEL_DIRS["xgboost"]) / "metrics.csv"
-    """
+    """Create the directory if needed and return it."""
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def find_mo_codes() -> Path | None:
-    """Optional: locate an MO_CODES.csv lookup under data/ or the project root.
-    Returns the first match, or None if absent (the pipeline works without it)."""
+    """Return the MO-codes CSV under data/ or the root, or None if there isn't one."""
     for base in (DATA_DIR, PROJECT_ROOT):
         for pattern in MO_CODES_GLOBS:
             matches = sorted(base.glob(pattern))
@@ -94,30 +68,24 @@ def find_mo_codes() -> Path | None:
 # REPRODUCIBILITY / TARGET / SPLIT
 # =============================================================================
 
-# Reuse this exact seed for EVERY random operation in EVERY model (train/test
-# split, CV folds, solver/estimator init) so the comparison is fair & reproducible.
+# Same seed everywhere so every model is reproducible and comparable.
 RANDOM_SEED = 42
 
-# The multi-class target created in data_cleaning.py:
+# Target column (created in data_cleaning.py):
 # Violent / Property / Sexual Assault / Vehicle / Other.
 TARGET_COLUMN = "category"
 
-# Train/test split shared by all models.
-TEST_SIZE = 0.20    # 80% train / 20% test
-STRATIFY  = True    # preserve class proportions (target is imbalanced)
-CV_FOLDS  = 3       # folds for GridSearchCV / cross-validation
+TEST_SIZE = 0.20    # 80/20 train/test
+STRATIFY  = True    # keep class proportions (classes are imbalanced)
+CV_FOLDS  = 3       # cross-validation folds
 
 
 # =============================================================================
 # FEATURE CATALOGUE
 # =============================================================================
-# Enable/disable EACH engineered feature individually. feature_engineering.py
-# reads these flags and only writes a derived column when its flag is True, so
-# you can turn any feature on/off here without touching the engineering code.
-#
-# The raw `vict_age` column is always kept (age_known / age_group are derived
-# from it). Columns sourced straight from the cleaned data that aren't derived
-# here (area_name, lat, lon, vict_sex, vict_descent, etc.) are not toggled here.
+# Per-feature on/off switches read by feature_engineering.py: a derived column
+# is written only if its flag is True. Raw columns kept as-is (area_name, lat,
+# lon, vict_sex, vict_descent, vict_age) are not listed here.
 
 FEATURE_CATALOGUE = {
     # ---- derived from date_occ ----
@@ -140,28 +108,25 @@ FEATURE_CATALOGUE = {
     "premis_group":   True,    # top-N premises kept, long tail -> "Other"
 }
 
-# How many of the most frequent premises to keep before bucketing the long tail
-# into "Other" (only used when premis_group is enabled).
+# Number of most-frequent premises to keep before grouping the rest into "Other".
 PREMIS_TOP_N = 20
 
 
 # =============================================================================
-# MODEL HYPERPARAMETERS  (baseline settings + tuning grids, one block per model)
+# MODEL HYPERPARAMETERS
 # =============================================================================
-# Each model file pulls its block from here. `baseline` = sensible defaults for
-# the un-tuned run; `param_grid` = the GridSearchCV search space (keys are
-# prefixed with `classifier__` to match an sklearn Pipeline step named
-# "classifier"). Edit freely — these are starting points, not commitments.
+# One block per model. `baseline` = defaults for the untuned run; `param_grid` =
+# GridSearchCV search space (keys prefixed `classifier__` to match the Pipeline step).
 
 MODEL_PARAMS = {
     "logistic_regression": {
         "baseline": {
             "penalty":  "l2",
-            "solver":   "lbfgs",   # supports native multinomial loss
+            "solver":   "lbfgs",   # handles multinomial loss
             "C":        1.0,
             "max_iter": 1000,
         },
-        # Tuning uses solver="saga" (the only solver supporting l1 + multinomial).
+        # saga is needed for the l1 penalty in the grid below.
         "tuning_solver":   "saga",
         "tuning_max_iter": 2000,
         "param_grid": {
@@ -220,8 +185,7 @@ MODEL_PARAMS = {
         },
     },
 
-    "neural_network": {
-        # Framework-agnostic spec (use Keras or PyTorch when implementing).
+    "neural_network": {   # PyTorch MLP (models/model_neural_network.py)
         "architecture": {
             "hidden_layers": [128, 64],
             "dropout":       0.3,
@@ -234,6 +198,15 @@ MODEL_PARAMS = {
             "learning_rate":          1e-3,
             "optimizer":              "adam",
             "early_stopping_patience": 5,
+            # Use a CUDA GPU when available, else fall back to CPU. CUDA is NVIDIA-only
+            # and needs a CUDA build of torch; it has no effect on AMD GPUs.
+            "use_cuda":               True,
+            "val_size":               0.1,   # train fraction held out for early stopping
+        },
+        # Small grid for the tuned run; best picked by validation macro-F1.
+        "tuning": {
+            "learning_rate": [1e-3, 5e-4],
+            "hidden_layers": [[128, 64], [256, 128]],
         },
     },
 }
