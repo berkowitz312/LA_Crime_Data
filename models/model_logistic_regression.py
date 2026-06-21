@@ -14,32 +14,36 @@ metrics using the same train/test split (same random seed, documented below).
 
 RANDOM SEED — IMPORTANT FOR YOUR TEAM
 ======================================
-    RANDOM_SEED = 42
+    RANDOM_SEED = cfg.RANDOM_SEED  (42, defined centrally in src/config.py)
 
 Every random operation in this script (train/test split, cross-validation
 folds, solver initialization) uses this exact seed. For your model
 comparison to be fair and reproducible, anyone building another model
 (ensemble, deep learning, etc.) on this dataset should:
-    1. Use the SAME random seed (42) for their train/test split
-    2. Use the SAME stratification strategy (stratify on `category`)
+    1. Use the SAME random seed (cfg.RANDOM_SEED) for their train/test split
+    2. Use the SAME stratification strategy (stratify on cfg.TARGET_COLUMN)
     3. Ideally, load the exact split indices this script saves to
-       model_outputs/train_test_split_indices.csv, so everyone is
-       evaluating on the literal same held-out rows.
+       cfg.SPLIT_INDICES_PATH (data/processed/train_test_split_indices.csv),
+       so everyone is evaluating on the literal same held-out rows.
 
-Auto-detects the cleaned dataset in the SAME FOLDER as this script:
-    cleaned_data/la_crime_cleaned.csv   (produced by data_cleaning.py)
+Reads the engineered features dataset (path from src/config.py):
+    data/processed/la_crime_features.csv   (produced by feature_engineering.py)
 
 Usage:
-    python multinomial_logistic_regression.py
+    python models/model_logistic_regression.py
 
-Produces (in model_outputs/):
-    train_test_split_indices.csv   <- exact row indices used, for team reuse
+Produces (in outputs/logistic_regression_output/):
     confusion_matrix_baseline.png
     confusion_matrix_tuned.png
     roc_curves_tuned.png
     feature_importance.png
-    model_comparison_summary.csv   <- baseline vs tuned, ready to merge with
-                                       teammates' model results
+    precision_recall_f1_by_class.png   <- generic visuals kept uniform with the
+    baseline_vs_tuned_metrics.png         other models for side-by-side comparison
+    class_distribution.png
+    model_comparison_summary.csv   <- baseline vs tuned, also upserted into the
+                                       shared outputs/model_comparison_summary.csv
+    (the shared train/test split indices are written to
+     data/processed/train_test_split_indices.csv, reused by every model)
 
     -- Statistical diagnostics & variable-selection stage (requires
        statsmodels — `pip install statsmodels`) --
@@ -82,17 +86,23 @@ except ImportError:
     print("[WARN] statsmodels not installed. Run: pip install statsmodels")
     print("       The significance-testing / VIF / diagnostics stage will be skipped.")
 
+# All paths / settings (seed, target, split, hyperparameters) come from src/config.py.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+import config as cfg
+
 # =============================================================================
-# 0.  REPRODUCIBILITY  &  PATH AUTO-DETECTION
+# 0.  REPRODUCIBILITY  &  PATHS  (resolved from the central config)
 # =============================================================================
 
-RANDOM_SEED = 42          # <-- documented above; reuse this across all models
+MODEL_KEY   = "logistic_regression"
+RANDOM_SEED = cfg.RANDOM_SEED    # <-- documented above; reuse this across all models
 np.random.seed(RANDOM_SEED)
 
-SCRIPT_DIR  = Path(__file__).resolve().parent
-CLEANED_DIR = SCRIPT_DIR / "cleaned_data"
-OUT_DIR     = SCRIPT_DIR / "model_outputs"
-OUT_DIR.mkdir(exist_ok=True)
+# Input is the engineered features file (shared by all 5 models); each model's
+# outputs land in its own folder under outputs/.
+FEATURES_PATH = cfg.FEATURES_DATA_PATH
+OUT_DIR       = cfg.ensure_dir(cfg.MODEL_DIRS[MODEL_KEY])
+PARAMS        = cfg.MODEL_PARAMS[MODEL_KEY]
 
 sns.set_theme(style="darkgrid", font_scale=1.0)
 ACCENT, COOL, WARM, DARK_BG = "#E63946", "#457B9D", "#F4A261", "#1D3557"
@@ -102,15 +112,14 @@ CATEGORY_COLORS = {
 }
 
 
-def find_cleaned_file() -> Path:
-    candidates = sorted(CLEANED_DIR.glob("*.csv")) if CLEANED_DIR.exists() else []
-    if not candidates:
-        candidates = sorted(SCRIPT_DIR.glob("*cleaned*.csv"))
-    if not candidates:
-        print(f"\n  [ERROR] Could not find a cleaned CSV file in {CLEANED_DIR}")
-        print(f"          Run data_cleaning.py first.")
+def find_features_file() -> Path:
+    """Return the engineered features dataset path from config, erroring if absent."""
+    path = cfg.FEATURES_DATA_PATH
+    if not path.exists():
+        print(f"\n  [ERROR] Could not find the engineered features file at {path}")
+        print(f"          Run data_cleaning.py then feature_engineering.py first.")
         sys.exit(1)
-    return candidates[0]
+    return path
 
 
 # =============================================================================
@@ -119,10 +128,10 @@ def find_cleaned_file() -> Path:
 
 def load_data() -> pd.DataFrame:
     print(f"\n{'='*70}")
-    print("  STEP 1 – LOADING CLEANED DATASET")
+    print("  STEP 1 – LOADING ENGINEERED FEATURES DATASET")
     print(f"{'='*70}")
-    path = find_cleaned_file()
-    print(f"  File  : {path.name}")
+    path = find_features_file()
+    print(f"  File  : {path}")
     df = pd.read_csv(path, low_memory=False)
     print(f"  Shape : {df.shape}")
     return df
@@ -138,32 +147,29 @@ def load_data() -> pd.DataFrame:
 # a Violent/Sexual Assault crime) — including them would leak the answer
 # and produce an unrealistically easy, non-generalizable model.
 
-FEATURE_COLUMNS = {
-    # Time features (parsed from date_occ / time_occ — raw, not engineered)
-    "time_occ":     "numeric",     # HHMM as integer, e.g. 1430 -> we'll derive hour
-    "date_occ":     "datetime",    # used to derive month / day-of-week / year
-    # Location features
-    "area_name":    "categorical",
-    "lat":          "numeric",
-    "lon":          "numeric",
-    # Victim demographics
-    "vict_age":     "numeric",
-    "vict_sex":     "categorical",
-    "vict_descent": "categorical",
-    # Premise
-    "premis_desc":  "categorical",
-}
+# Approved feature set for this model, sourced from the engineered features file
+# (feature_engineering.py). These columns are already derived upstream, so this
+# model no longer re-derives anything — it just selects what it's allowed to use.
+#   numeric     : continuous / count features standardized below
+#   categorical : one-hot encoded below
+# Any column missing from the features file (e.g. because its FEATURE_CATALOGUE
+# toggle was disabled) is silently skipped, so the model degrades gracefully.
+NUMERIC_FEATURE_COLUMNS = ["lat", "lon", "vict_age", "hour", "month", "day_of_week"]
+CATEGORICAL_FEATURE_COLUMNS = ["area_name", "vict_sex", "vict_descent", "premis_group"]
 
-TARGET_COLUMN = "category"
+TARGET_COLUMN = cfg.TARGET_COLUMN
 
 
 def select_and_engineer_minimal_features(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Pulls in only the approved feature set and derives the minimum necessary
-    numeric features from date/time so the model has something usable
-    (raw HHMM integers and raw date strings aren't meaningful to a linear
-    model as-is). This is NOT the project's full feature-engineering stage —
-    just the minimal derivation needed for this model to function.
+    Selects this model's approved feature set from the already-engineered
+    features dataset. feature_engineering.py has already derived hour, month,
+    day_of_week, premis_group, etc., so no derivation happens here — only
+    column selection. Columns absent from the file (e.g. a feature disabled in
+    config.FEATURE_CATALOGUE) are skipped so the model still runs.
+
+    Deliberately EXCLUDES weapon_desc / status_desc: they are downstream
+    consequences of the crime category and would leak the target.
     """
     print(f"\n{'='*70}")
     print("  STEP 2 – FEATURE SELECTION")
@@ -171,21 +177,21 @@ def select_and_engineer_minimal_features(df: pd.DataFrame) -> pd.DataFrame:
     print("  Selected feature groups: TIME, LOCATION, VICTIM DEMOGRAPHICS, PREMISE")
     print("  Excluded on purpose: weapon_desc, status_desc (would leak the target)")
 
-    work = df[[TARGET_COLUMN] + list(FEATURE_COLUMNS.keys())].copy()
+    wanted = NUMERIC_FEATURE_COLUMNS + CATEGORICAL_FEATURE_COLUMNS
+    present = [c for c in wanted if c in df.columns]
+    missing = [c for c in wanted if c not in df.columns]
+    if missing:
+        print(f"  [NOTE] Not in features file (skipped): {missing}")
+        print(f"         (likely disabled via config.FEATURE_CATALOGUE upstream)")
 
-    # Derive hour-of-day from time_occ (HHMM integer -> 0-23)
-    work["hour_occ"] = pd.to_numeric(work["time_occ"], errors="coerce") // 100
+    if TARGET_COLUMN not in df.columns:
+        print(f"\n  [ERROR] Target column '{TARGET_COLUMN}' not found in features file.")
+        sys.exit(1)
 
-    # Derive month and day-of-week from date_occ
-    work["date_occ"] = pd.to_datetime(work["date_occ"], errors="coerce")
-    work["month_occ"] = work["date_occ"].dt.month
-    work["dow_occ"]   = work["date_occ"].dt.dayofweek  # 0=Mon
+    work = df[[TARGET_COLUMN] + present].copy()
 
-    work = work.drop(columns=["time_occ", "date_occ"])
-
-    print(f"  Derived 'hour_occ', 'month_occ', 'dow_occ' from raw time/date.")
-    print(f"  Final feature set ({work.shape[1]-1} features + target):")
-    print(f"    {[c for c in work.columns if c != TARGET_COLUMN]}")
+    print(f"  Final feature set ({len(present)} features + target):")
+    print(f"    {present}")
 
     return work
 
@@ -201,11 +207,8 @@ def explain_and_build_preprocessor(work: pd.DataFrame):
     print("  STEP 3 – DATA PRE-PROCESSING  (with rationale for each step)")
     print(f"{'='*70}")
 
-    numeric_features     = ["lat", "lon", "vict_age", "hour_occ", "month_occ", "dow_occ"]
-    categorical_features = ["area_name", "vict_sex", "vict_descent", "premis_desc"]
-
-    numeric_features     = [c for c in numeric_features if c in work.columns]
-    categorical_features = [c for c in categorical_features if c in work.columns]
+    numeric_features     = [c for c in NUMERIC_FEATURE_COLUMNS if c in work.columns]
+    categorical_features = [c for c in CATEGORICAL_FEATURE_COLUMNS if c in work.columns]
 
     print("""
   (1) MISSING-VALUE IMPUTATION
@@ -280,12 +283,12 @@ def make_split(work: pd.DataFrame):
 
     X_train, X_test, y_train, y_test, idx_train, idx_test = train_test_split(
         X, y, work.index,
-        test_size=0.2,
+        test_size=cfg.TEST_SIZE,
         random_state=RANDOM_SEED,
-        stratify=y,
+        stratify=y if cfg.STRATIFY else None,
     )
 
-    print(f"  Split        : 80% train / 20% test")
+    print(f"  Split        : {int((1-cfg.TEST_SIZE)*100)}% train / {int(cfg.TEST_SIZE*100)}% test")
     print(f"  Random seed  : {RANDOM_SEED}  <-- use this exact seed for any other model")
     print(f"  Stratified by: '{TARGET_COLUMN}'")
     print(f"  Train shape  : {X_train.shape}")
@@ -303,7 +306,8 @@ def make_split(work: pd.DataFrame):
         "row_index": list(idx_train) + list(idx_test),
         "split": ["train"] * len(idx_train) + ["test"] * len(idx_test),
     })
-    split_path = OUT_DIR / "train_test_split_indices.csv"
+    split_path = cfg.SPLIT_INDICES_PATH
+    cfg.ensure_dir(split_path.parent)
     split_df.to_csv(split_path, index=False)
     print(f"\n  Saved exact split indices -> {split_path}")
     print(f"  (Share this file + RANDOM_SEED={RANDOM_SEED} with your team so "
@@ -329,10 +333,12 @@ def build_baseline_model(preprocessor):
     solvers, so no explicit `multi_class` argument is needed (and newer
     versions no longer accept one).
     """
+    base = PARAMS["baseline"]   # from config.MODEL_PARAMS["logistic_regression"]
     model = LogisticRegression(
-        penalty="l2",
-        solver="lbfgs",          # supports true multinomial loss natively, efficient for medium feature counts
-        max_iter=1000,
+        penalty=base["penalty"],
+        solver=base["solver"],   # lbfgs supports true multinomial loss natively
+        C=base["C"],
+        max_iter=base["max_iter"],
         random_state=RANDOM_SEED,
         n_jobs=-1,
     )
@@ -468,8 +474,8 @@ def tune_model(preprocessor, X_train, y_train):
     """)
 
     model = LogisticRegression(
-        solver="saga",
-        max_iter=2000,
+        solver=PARAMS.get("tuning_solver", "saga"),
+        max_iter=PARAMS.get("tuning_max_iter", 2000),
         random_state=RANDOM_SEED,
         n_jobs=-1,
     )
@@ -478,12 +484,9 @@ def tune_model(preprocessor, X_train, y_train):
         ("classifier", model),
     ])
 
-    param_grid = {
-        "classifier__C": [0.01, 0.1, 1, 10],
-        "classifier__penalty": ["l1", "l2"],
-    }
+    param_grid = PARAMS["param_grid"]   # from config.MODEL_PARAMS["logistic_regression"]
 
-    cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=RANDOM_SEED)
+    cv = StratifiedKFold(n_splits=cfg.CV_FOLDS, shuffle=True, random_state=RANDOM_SEED)
 
     grid = GridSearchCV(
         pipeline,
@@ -540,6 +543,69 @@ def plot_feature_importance(pipeline, class_labels, top_n: int = 20):
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"  -> saved: {path}")
+
+
+# -----------------------------------------------------------------------------
+# Generic comparison visuals — kept IDENTICAL (filenames, layout, palette) to the
+# other models (e.g. model_xgboost.py) so the per-model output folders can be
+# compared side-by-side.
+# -----------------------------------------------------------------------------
+
+def _save_fig(fig, filename: str):
+    path = OUT_DIR / filename
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  -> saved: {path}")
+
+
+def plot_per_class_metrics(y_test, y_pred, class_labels, filename: str):
+    p, r, f1, _ = precision_recall_fscore_support(
+        y_test, y_pred, labels=class_labels, zero_division=0
+    )
+    x = np.arange(len(class_labels)); w = 0.26
+    fig, ax = plt.subplots(figsize=(11, 6))
+    ax.bar(x - w, p, w, label="Precision", color=COOL, edgecolor="white")
+    ax.bar(x,     r, w, label="Recall",    color=WARM, edgecolor="white")
+    ax.bar(x + w, f1, w, label="F1",        color=ACCENT, edgecolor="white")
+    ax.set_xticks(x); ax.set_xticklabels(class_labels, rotation=20)
+    ax.set_ylim(0, 1); ax.set_ylabel("Score")
+    ax.set_title("Per-Class Precision / Recall / F1 (Tuned Logistic Regression)",
+                 fontsize=13, fontweight="bold", color=DARK_BG)
+    ax.legend()
+    plt.tight_layout()
+    _save_fig(fig, filename)
+
+
+def plot_baseline_vs_tuned(baseline, tuned, filename: str):
+    metrics = ["accuracy", "macro_precision", "macro_recall", "macro_f1", "macro_roc_auc"]
+    labels  = ["Accuracy", "Macro P", "Macro R", "Macro F1", "ROC-AUC"]
+    x = np.arange(len(metrics)); w = 0.38
+    fig, ax = plt.subplots(figsize=(11, 6))
+    ax.bar(x - w/2, [baseline[m] for m in metrics], w, label="Baseline", color=COOL, edgecolor="white")
+    ax.bar(x + w/2, [tuned[m] for m in metrics],    w, label="Tuned",    color=ACCENT, edgecolor="white")
+    ax.set_xticks(x); ax.set_xticklabels(labels)
+    ax.set_ylim(0, 1); ax.set_ylabel("Score")
+    ax.set_title("Baseline vs Tuned — Logistic Regression",
+                 fontsize=13, fontweight="bold", color=DARK_BG)
+    for i, m in enumerate(metrics):
+        ax.text(i - w/2, baseline[m] + 0.01, f"{baseline[m]:.2f}", ha="center", fontsize=8)
+        ax.text(i + w/2, tuned[m] + 0.01,    f"{tuned[m]:.2f}",    ha="center", fontsize=8)
+    ax.legend()
+    plt.tight_layout()
+    _save_fig(fig, filename)
+
+
+def plot_class_distribution(work: pd.DataFrame, filename: str):
+    counts = work[TARGET_COLUMN].value_counts()
+    colors = [CATEGORY_COLORS.get(c, "#999999") for c in counts.index]
+    fig, ax = plt.subplots(figsize=(9, 6))
+    ax.bar(counts.index, counts.values, color=colors, edgecolor="white")
+    ax.set_title("Target Class Distribution", fontsize=13, fontweight="bold", color=DARK_BG)
+    ax.set_ylabel("Incidents"); ax.tick_params(axis="x", rotation=20)
+    for i, v in enumerate(counts.values):
+        ax.text(i, v, f"{v:,}", ha="center", va="bottom", fontsize=8)
+    plt.tight_layout()
+    _save_fig(fig, filename)
 
 
 # =============================================================================
@@ -1152,6 +1218,12 @@ def main():
     plot_roc_curves(y_test, tuned_results["y_proba"], class_labels, "roc_curves_tuned.png")
     plot_feature_importance(tuned_pipeline, class_labels)
 
+    # ---- Generic comparison visuals (kept uniform with the other models) ----
+    plot_class_distribution(work, "class_distribution.png")
+    plot_per_class_metrics(y_test, tuned_results["y_pred"], class_labels,
+                           "precision_recall_f1_by_class.png")
+    plot_baseline_vs_tuned(baseline_results, tuned_results, "baseline_vs_tuned_metrics.png")
+
     # ---- Comparison summary ----
     print(f"\n{'='*70}")
     print("  STEP 8 – BASELINE vs TUNED COMPARISON")
@@ -1180,11 +1252,27 @@ def main():
     print(f"\n  Macro-F1 change from tuning: {improvement:+.4f} "
           f"({'improvement' if improvement > 0 else 'no improvement / regression'})")
 
-    comp_path = OUT_DIR / "model_comparison_summary.csv"
-    comparison.to_csv(comp_path, index=False)
-    print(f"\n  -> saved: {comp_path}")
-    print(f"  (Teammates: append your model's row to this CSV using the same "
-          f"columns, for a unified comparison table.)")
+    # Keep a copy in this model's own output folder...
+    comparison.to_csv(OUT_DIR / "model_comparison_summary.csv", index=False)
+
+    # ...and upsert into the SHARED comparison table all 5 models contribute to.
+    # Re-running this model replaces just its own rows, so the table never
+    # accumulates duplicates.
+    comparison = comparison.assign(model_key=MODEL_KEY)
+    shared_path = cfg.COMPARISON_SUMMARY_PATH
+    cfg.ensure_dir(shared_path.parent)
+    if shared_path.exists():
+        prior = pd.read_csv(shared_path)
+        if "model_key" in prior.columns:
+            prior = prior[prior["model_key"] != MODEL_KEY]
+        combined = pd.concat([prior, comparison], ignore_index=True)
+    else:
+        combined = comparison
+    combined.to_csv(shared_path, index=False)
+    print(f"\n  -> saved (this model): {OUT_DIR / 'model_comparison_summary.csv'}")
+    print(f"  -> updated (shared)  : {shared_path}")
+    print(f"  (Teammates: every model upserts its rows here keyed by 'model_key' "
+          f"for one unified comparison table.)")
 
     # ---- Statistical diagnostics & significance-driven variable selection ----
     diagnostics = run_statistical_diagnostics(work, num_feats, cat_feats)
@@ -1278,7 +1366,7 @@ def main():
         """)
 
     print(f"\n{'#'*70}")
-    print("  DONE. All outputs saved in: model_outputs/")
+    print(f"  DONE. All outputs saved in: {OUT_DIR}")
     print(f"  RANDOM SEED USED: {RANDOM_SEED}  <-- share this with your team")
     print(f"{'#'*70}\n")
 
