@@ -1,0 +1,128 @@
+
+######################################################################
+  DECISION TREE — LA Crime Category Prediction
+  RANDOM SEED USED THROUGHOUT: 42
+######################################################################
+
+======================================================================
+  STEP 1 – LOADING ENGINEERED FEATURES DATASET
+======================================================================
+  File  : /Users/kjellvandebergh/claude/uni/data-science/data/processed/la_crime_features.csv
+  Shape : (918443, 26)
+
+======================================================================
+  STEP 2 – FEATURE SELECTION
+======================================================================
+  Selected feature groups: TIME, LOCATION, VICTIM DEMOGRAPHICS, PREMISE
+  Excluded on purpose: weapon_desc, status_desc (would leak the target)
+  Final feature set (10 features + target):
+    ['lat', 'lon', 'vict_age', 'hour', 'month', 'day_of_week', 'area_name', 'vict_sex', 'vict_descent', 'premis_group']
+  -> saved: /Users/kjellvandebergh/claude/uni/data-science/outputs/decision_tree_output/class_distribution.png
+
+  Target classes (5): ['Other', 'Property', 'Sexual Assault', 'Vehicle', 'Violent']
+
+======================================================================
+  STEP 3 – PRE-PROCESSING  (impute + one-hot, no scaling for trees)
+======================================================================
+  Numeric (median-imputed)   : ['lat', 'lon', 'vict_age', 'hour', 'month', 'day_of_week']
+  Categorical (one-hot)      : ['area_name', 'vict_sex', 'vict_descent', 'premis_group']
+
+======================================================================
+  STEP 4 – TRAIN / TEST SPLIT
+======================================================================
+  No shared split found — created one and saved -> /Users/kjellvandebergh/claude/uni/data-science/data/processed/train_test_split_indices.csv
+  Split        : 80% train / 20% test
+  Random seed  : 42
+  Stratified by: 'category'
+  Train shape  : (734754, 10)
+  Test shape   : (183689, 10)
+
+======================================================================
+  STEP 5 – BASELINE MODEL
+======================================================================
+
+  -- BASELINE Results --
+  Accuracy        : 0.5669
+  Macro Precision : 0.4236
+  Macro Recall    : 0.4278
+  Macro F1        : 0.4255
+  Macro ROC-AUC   : 0.6529
+  Log Loss        : 15.5924
+
+  Per-class report:
+                precision    recall  f1-score   support
+
+         Other       0.12      0.14      0.13      6323
+      Property       0.62      0.61      0.61     69229
+Sexual Assault       0.19      0.21      0.20      5835
+       Vehicle       0.69      0.69      0.69     47726
+       Violent       0.50      0.50      0.50     54576
+
+      accuracy                           0.57    183689
+     macro avg       0.42      0.43      0.43    183689
+  weighted avg       0.57      0.57      0.57    183689
+
+  -> saved: /Users/kjellvandebergh/claude/uni/data-science/outputs/decision_tree_output/confusion_matrix_baseline.png
+
+======================================================================
+  STEP 6 – HYPERPARAMETER TUNING (GridSearchCV)
+======================================================================
+  Search space : {'classifier__max_depth': [5, 10, 20, None], 'classifier__min_samples_split': [2, 10, 50], 'classifier__min_samples_leaf': [1, 5, 20], 'classifier__criterion': ['gini', 'entropy'], 'classifier__class_weight': [None, 'balanced']}
+  CV           : StratifiedKFold(3), scoring=f1_macro
+Fitting 3 folds for each of 144 candidates, totalling 432 fits
+
+  Best parameters found : {'classifier__class_weight': None, 'classifier__criterion': 'entropy', 'classifier__max_depth': None, 'classifier__min_samples_leaf': 5, 'classifier__min_samples_split': 50}
+  Best CV macro-F1      : 0.4635
+  -> saved: /Users/kjellvandebergh/claude/uni/data-science/outputs/decision_tree_output/grid_search_results.csv
+
+  -- TUNED Results --
+  Accuracy        : 0.6478
+  Macro Precision : 0.5284
+  Macro Recall    : 0.4528
+  Macro F1        : 0.4650
+  Macro ROC-AUC   : 0.7826
+  Log Loss        : 2.9979
+
+  Per-class report:
+                precision    recall  f1-score   support
+
+         Other       0.22      0.04      0.07      6323
+      Property       0.66      0.72      0.69     69229
+Sexual Assault       0.45      0.16      0.24      5835
+       Vehicle       0.75      0.76      0.75     47726
+       Violent       0.56      0.58      0.57     54576
+
+      accuracy                           0.65    183689
+     macro avg       0.53      0.45      0.46    183689
+  weighted avg       0.63      0.65      0.64    183689
+
+  -> saved: /Users/kjellvandebergh/claude/uni/data-science/outputs/decision_tree_output/confusion_matrix_tuned.png
+  -> saved: /Users/kjellvandebergh/claude/uni/data-science/outputs/decision_tree_output/roc_curves_tuned.png
+
+  [PLOT] Feature importance (impurity/Gini-based, from the tuned tree)
+  -> saved: /Users/kjellvandebergh/claude/uni/data-science/outputs/decision_tree_output/feature_importance.png
+  -> saved: /Users/kjellvandebergh/claude/uni/data-science/outputs/decision_tree_output/precision_recall_f1_by_class.png
+  -> saved: /Users/kjellvandebergh/claude/uni/data-science/outputs/decision_tree_output/baseline_vs_tuned_metrics.png
+
+  [PLOT] Tree structure (top 3 levels of the tuned tree)
+  -> saved: /Users/kjellvandebergh/claude/uni/data-science/outputs/decision_tree_output/tree_structure.png
+
+======================================================================
+  STEP 7 – BASELINE vs TUNED COMPARISON
+======================================================================
+                                                                                                                                                                                               model  accuracy  macro_precision  macro_recall  macro_f1  macro_roc_auc  log_loss  random_seed
+                                                                                                                                                                            Decision Tree (Baseline)  0.566877         0.423594      0.427799  0.425503       0.652889 15.592366           42
+Decision Tree (Tuned: {'classifier__class_weight': None, 'classifier__criterion': 'entropy', 'classifier__max_depth': None, 'classifier__min_samples_leaf': 5, 'classifier__min_samples_split': 50})  0.647807         0.528354      0.452751  0.464971       0.782594  2.997937           42
+
+  Macro-F1 change from tuning: +0.0395 (improvement)
+
+  -> saved (this model): /Users/kjellvandebergh/claude/uni/data-science/outputs/decision_tree_output/model_comparison_summary.csv
+  -> updated (shared)  : /Users/kjellvandebergh/claude/uni/data-science/outputs/model_comparison_summary.csv
+
+  Serialized tuned model -> /Users/kjellvandebergh/claude/uni/data-science/outputs/decision_tree_output/model_decision_tree.joblib
+
+######################################################################
+  DONE. All outputs saved in: /Users/kjellvandebergh/claude/uni/data-science/outputs/decision_tree_output
+  RANDOM SEED USED: 42  <-- shared across all models
+######################################################################
+
