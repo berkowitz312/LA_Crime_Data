@@ -1,27 +1,7 @@
 """
-dataset_overview.py
-====================
-LA Crime Data – Statistical Summary & Exploratory Data Analysis
-
-Reads the cleaned dataset produced by data_cleaning.py:
-    data/processed/la_crime_cleaned.csv   (path from src/config.py)
-
-This script uses ONLY columns present in the cleaned dataset itself. No
-MO_CODES.csv lookup or any MO-derived columns are referenced here — MO codes
-are consumed entirely within data_cleaning.py (only as a one-time hint to
-help assign the `category` column) and are not needed again afterwards.
-
-No file paths or flags need to be passed in — paths come from src/config.py.
-Just make sure you've run data_cleaning.py first, then run:
-
-    python src/dataset_overview.py
-
-Produces:
-    outputs/eda_outputs/*.png         <- static charts
-    outputs/eda_outputs/heatmap.html  <- interactive, filterable crime heat-map
-                                     (filter by category AND year, using
-                                     every available geocoded point up to
-                                     a generous safety cap)
+Exploratory data analysis on the cleaned dataset. Reads
+data/processed/la_crime_cleaned.csv and writes static charts plus an
+interactive heat-map to outputs/eda_outputs/.
 """
 
 import sys
@@ -36,19 +16,18 @@ import matplotlib.ticker as mticker
 import seaborn as sns
 from pathlib import Path
 
-# All paths come from the central config in src/.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import config as cfg
 
 # =============================================================================
-# 0.  PATHS  (resolved from the central config — independent of the CWD)
+# 0.  PATHS
 # =============================================================================
 
-OUT_DIR = cfg.ensure_dir(cfg.EDA_DIR)   # outputs/eda_outputs/
+OUT_DIR = cfg.ensure_dir(cfg.EDA_DIR)
 
 
 def find_cleaned_file() -> Path:
-    """Return the cleaned dataset path from config, erroring if it's not there yet."""
+    """Return the cleaned dataset path, erroring if data_cleaning.py hasn't run."""
     path = cfg.CLEANED_DATA_PATH
     if not path.exists():
         print(f"\n  [ERROR] Could not find the cleaned CSV file.")
@@ -372,22 +351,9 @@ def eda_correlation(df: pd.DataFrame):
 # =============================================================================
 
 def build_interactive_heatmap(df: pd.DataFrame, max_points: int = 300_000):
-    """
-    Builds a single self-contained HTML file with a Leaflet heat-map.
-    Includes dropdown filters for:
-        - Crime Category (Violent / Property / Sexual Assault / Vehicle / Other / All)
-        - Year (each year present in the data, or All)
-
-    `max_points` is a safety ceiling (default 300,000) to keep the HTML
-    file from becoming unreasonably large/slow to open in a browser. If the
-    dataset has fewer geocoded rows than this, ALL of them are used with no
-    downsampling whatsoever. If downsampling is required, it is done in a
-    stratified way (proportionally across category x year groups) so no
-    category or year is ever dropped entirely from the map.
-
-    No external API key needed (uses OpenStreetMap tiles + leaflet.heat,
-    both loaded from public CDNs).
-    """
+    """Write a self-contained Leaflet heat-map (HTML) with category and year
+    filters. Caps the points at max_points, sampling proportionally across
+    category x year so no group disappears. Uses public CDN tiles, no API key."""
     print("\n  [EDA] 11 -- Interactive filterable heat-map")
 
     needed = ["lat", "lon"]
@@ -410,10 +376,7 @@ def build_interactive_heatmap(df: pd.DataFrame, max_points: int = 300_000):
 
     total_available = len(geo)
     if total_available > max_points:
-        # Stratified sample: each (category, year) group keeps the same
-        # proportion of points, so every filter combination still has data.
-        # Done via sampled index positions (robust across pandas versions,
-        # rather than relying on groupby().apply() return semantics).
+        # Proportional sample per (category, year) so every filter keeps points.
         frac = max_points / total_available
         sampled_indices = []
         for _, grp in geo.groupby(["category", "year"]):
@@ -432,8 +395,7 @@ def build_interactive_heatmap(df: pd.DataFrame, max_points: int = 300_000):
     categories = sorted(geo["category"].dropna().unique().tolist())
     years      = sorted(geo["year"].dropna().unique().tolist())
 
-    # Build point payload grouped by (category, year) so the front-end
-    # can instantly filter without re-querying anything server-side.
+    # Group points by (category, year) so the page can filter client-side.
     points_by_group = {}
     for (cat, yr), grp in geo.groupby(["category", "year"]):
         key = f"{cat}||{yr}"

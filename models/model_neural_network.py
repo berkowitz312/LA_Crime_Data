@@ -1,44 +1,12 @@
 """
-model_neural_network.py
-========================
-LA Crime Data — Neural Network (PyTorch MLP)
+PyTorch MLP for the `category` target. One of the five comparison models.
 
-Predicts the 5-class `category` target (Violent / Property / Sexual Assault /
-Vehicle / Other) from time, location, victim demographic, and premise features.
+Reads data/processed/la_crime_features.csv, reuses the shared train/test split,
+takes its hyperparameters from config, and writes plots, metrics, and the saved
+model to outputs/neural_network_output/. Same feature set and seed as the others.
 
-This is ONE model in the 5-model comparison project. It plugs into the shared
-architecture defined in src/config.py exactly like model_xgboost.py:
-
-    * reads the engineered features   -> data/processed/la_crime_features.csv
-    * reuses the SHARED train/test split (cfg.SPLIT_INDICES_PATH) so every model
-      is evaluated on the identical held-out rows
-    * pulls hyperparameters           -> cfg.MODEL_PARAMS["neural_network"]
-    * writes all artifacts            -> outputs/neural_network_output/
-    * upserts its metrics             -> outputs/model_comparison_summary.csv
-                                         (keyed by model_key="neural_network")
-
-CUDA
-====
-The CUDA switch lives in config: MODEL_PARAMS["neural_network"]["training"]["use_cuda"].
-When True, the model uses an NVIDIA GPU IF one is available, otherwise it falls
-back to CPU (the case on an AMD / Windows laptop) — see resolve_device(). CUDA is
-NVIDIA-only and needs a CUDA build of torch; it does not apply to AMD GPUs.
-
-Usage:
-    python models/model_neural_network.py
-
-Produces (in outputs/neural_network_output/):
-    confusion_matrix_baseline.png
-    confusion_matrix_tuned.png
-    roc_curves_tuned.png
-    feature_importance.png            <- permutation importance (model-agnostic)
-    precision_recall_f1_by_class.png
-    baseline_vs_tuned_metrics.png
-    class_distribution.png
-    training_curve.png                <- loss / val-accuracy per epoch (NN-specific)
-    search_results.csv                <- light hyperparameter-search results
-    model_comparison_summary.csv      <- this model's rows (also upserted to the shared file)
-    model_neural_network.joblib       <- state_dict + arch + preprocessor + label encoder
+The use_cuda flag in config picks an NVIDIA GPU when available and otherwise runs
+on CPU (see resolve_device). CUDA is NVIDIA-only and needs a CUDA build of torch.
 """
 
 import sys
@@ -100,18 +68,16 @@ CATEGORY_COLORS = {
     "Vehicle": "#F4A261", "Other": "#6C757D",
 }
 
-# Same approved feature set as the other models (fair comparison); weapon_desc /
-# status_desc excluded (target leakage).
+# Feature set shared by all models. weapon_desc / status_desc left out (leakage).
 NUMERIC_FEATURE_COLUMNS     = ["lat", "lon", "vict_age", "hour", "month", "day_of_week"]
 CATEGORICAL_FEATURE_COLUMNS = ["area_name", "vict_sex", "vict_descent", "premis_group"]
 TARGET_COLUMN = cfg.TARGET_COLUMN
 
-PERM_IMPORTANCE_SAMPLE = 2000   # rows used for permutation feature importance
+PERM_IMPORTANCE_SAMPLE = 2000   # rows used for permutation importance
 
 
 def resolve_device():
-    """Pick the compute device per the config CUDA switch. CUDA only if requested
-    AND actually available (NVIDIA GPU + CUDA torch); otherwise CPU."""
+    """Return cuda if use_cuda is set and a CUDA GPU is present, else cpu."""
     want_cuda = bool(TRAIN.get("use_cuda", False))
     if want_cuda and torch.cuda.is_available():
         dev = torch.device("cuda")
@@ -154,8 +120,8 @@ def select_features(df: pd.DataFrame) -> pd.DataFrame:
     print(f"\n{'='*70}")
     print("  STEP 2 – FEATURE SELECTION")
     print(f"{'='*70}")
-    print("  Selected feature groups: TIME, LOCATION, VICTIM DEMOGRAPHICS, PREMISE")
-    print("  Excluded on purpose: weapon_desc, status_desc (would leak the target)")
+    print("  Groups: time, location, victim demographics, premise")
+    print("  Left out: weapon_desc, status_desc (leak the target)")
 
     wanted  = NUMERIC_FEATURE_COLUMNS + CATEGORICAL_FEATURE_COLUMNS
     present = [c for c in wanted if c in df.columns]
@@ -225,8 +191,7 @@ def load_or_create_split(work: pd.DataFrame):
         test_idx  = [i for i in split.loc[split["split"] == "test",  "row_index"] if i in work.index]
         X_train, y_train = X.loc[train_idx], y.loc[train_idx]
         X_test,  y_test  = X.loc[test_idx],  y.loc[test_idx]
-        print(f"  Reusing SHARED split        : {split_path}")
-        print(f"  (identical held-out rows as every other model in the comparison)")
+        print(f"  Reusing shared split        : {split_path}")
     else:
         X_train, X_test, y_train, y_test, idx_train, idx_test = train_test_split(
             X, y, work.index, test_size=cfg.TEST_SIZE,
@@ -330,9 +295,8 @@ def train_model(X_tr, y_tr, X_val, y_val, input_dim, n_classes, hidden_layers,
 
 
 def run_light_search(X_tr, y_tr, X_val, y_val, input_dim, n_classes, device):
-    """Small manual grid (learning_rate x hidden_layers) picked by validation macro-F1.
-    Mirrors the baseline-vs-tuned structure of the other models without a full GridSearch
-    (which doesn't apply cleanly to a raw PyTorch net)."""
+    """Train each learning_rate x hidden_layers combo and keep the best by
+    validation macro-F1. Stands in for GridSearchCV, which doesn't fit a raw net."""
     print(f"\n{'='*70}")
     print("  STEP 6 – HYPERPARAMETER TUNING (light manual search)")
     print(f"{'='*70}")

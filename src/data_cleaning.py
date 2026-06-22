@@ -1,27 +1,9 @@
 """
-data_cleaning.py
-=================
-LA Crime Data – Data Cleaning & Categorization
+Cleans the raw LA crime CSV and adds a simplified `category` column. Reads
+data/Crime_Data...csv and writes data/processed/la_crime_cleaned.csv.
 
-Reads the raw dataset from the path defined in src/config.py:
-    - data/Crime_Data_from_2020_to_Present.csv   (the main LA crime dataset)
-
-The MO_CODES.csv lookup file is used ONLY to help assign the simplified
-crime `category` column (see step 4 below) — the lookup table itself is
-not loaded, merged, or otherwise referenced anywhere else. The raw
-`Mocodes` column from the original crime data IS kept as-is in the
-cleaned output (it's just an original column, never dropped), so it
-remains available for downstream MO-code feature engineering.
-
-No file paths or flags need to be passed in — paths come from src/config.py.
-Run from anywhere:
-
-    python src/data_cleaning.py
-
-Produces:
-    data/processed/la_crime_cleaned.csv   <- cleaned + categorized dataset
-                                             ready for feature_engineering.py
-                                             and dataset_overview.py
+MO_CODES.csv (optional) is only consulted to help assign `category`; it is never
+merged in. The original `Mocodes` column is kept in the output for later use.
 """
 
 import sys
@@ -32,26 +14,19 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-# All paths / settings come from the central config in src/.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import config as cfg
 
 # =============================================================================
-# 0.  PATHS  (resolved from the central config — independent of the CWD)
+# 0.  PATHS
 # =============================================================================
 
-# Raw input lives in data/, cleaned output goes to data/processed/ (created here).
 RAW_DATA_PATH = cfg.RAW_DATA_PATH
 OUT_DIR       = cfg.ensure_dir(cfg.PROCESSED_DIR)
 
 
 def find_input_files() -> tuple:
-    """Return (crime_csv_path, mo_codes_path_or_None) using the central config.
-
-    The crime CSV path is fixed by config; the MO_CODES.csv lookup is optional
-    and auto-detected (only used transiently to assist category assignment — if
-    absent, category assignment falls back to crime-code + description matching
-    only, which is still fully functional)."""
+    """Return (crime_csv, mo_codes_csv_or_None). The MO-codes file is optional."""
     crime_path = cfg.RAW_DATA_PATH
     if not crime_path.exists():
         print(f"\n  [ERROR] Could not find the main crime data CSV at: {crime_path}")
@@ -65,17 +40,13 @@ def find_input_files() -> tuple:
 
 
 # =============================================================================
-# 1.  MO CODE LOOKUP  (used ONLY to help assign the `category` column below;
-#     no MO-derived columns are added to the cleaned output)
+# 1.  MO CODE LOOKUP  (only used to help assign `category`)
 # =============================================================================
 
 def load_mo_code_categories(path) -> dict:
-    """
-    Reads MO_CODES.csv and returns a simple {code -> mo_category} dict.
-    Reads line-by-line, splitting on the FIRST and LAST comma only, so
-    embedded commas inside description text (e.g. "SEX, UNLAWFUL...")
-    don't break parsing. Returns {} if path is None.
-    """
+    """Parse MO_CODES.csv into {code -> category}. Splits each line on the first
+    and last comma only, so commas inside the description text don't break it.
+    Returns {} when path is None."""
     if path is None:
         return {}
 
@@ -103,14 +74,8 @@ def load_mo_code_categories(path) -> dict:
 
 
 def mo_codes_to_category_hint(mo_field: str, code_to_cat: dict) -> str:
-    """
-    Given a raw Mocodes string (space-separated 4-digit codes), returns the
-    single most useful category hint to help disambiguate crime category
-    assignment — specifically, whether 'Sex Related' MO codes are present.
-    This is the ONLY use of MO codes in this script: a one-shot signal
-    consumed immediately during category assignment, never stored as a
-    standalone column.
-    """
+    """Return "Sex Related" if any code in a Mocodes string maps to that category,
+    else "". Used as a hint when assigning `category`."""
     if not code_to_cat or pd.isna(mo_field) or str(mo_field).strip() == "":
         return ""
     codes = [c.strip().zfill(4) for c in str(mo_field).split() if c.strip()]
@@ -185,21 +150,8 @@ CRIME_CATEGORY_MAP = {
 def assign_crime_category(crm_cd: pd.Series,
                           crm_cd_desc: pd.Series = None,
                           mo_sex_hint: pd.Series = None) -> pd.Series:
-    """
-    Maps numeric crime codes to one of 5 simplified categories:
-    Violent, Property, Sexual Assault, Vehicle, Other.
-
-    Resolution order for any row not explicitly covered by
-    CRIME_CATEGORY_MAP:
-      1. Keyword match on Crm Cd Desc text.
-      2. If still unresolved and a Sex Related MO-code hint is present,
-         classify as Sexual Assault (helps catch ambiguous crime
-         descriptions that don't contain an obvious keyword).
-      3. Otherwise: Other.
-
-    Note: MO codes are used here only as a transient hint during this
-    one assignment step — no MO-derived column is added to the output.
-    """
+    """Map crime codes to one of 5 categories. For codes not in CRIME_CATEGORY_MAP:
+    try keyword matching on the description, then the Sex Related MO hint, else "Other"."""
     mapped = crm_cd.map(CRIME_CATEGORY_MAP)
 
     if crm_cd_desc is not None:
@@ -368,11 +320,7 @@ def categorize_data(df: pd.DataFrame, mo_code_to_cat: dict) -> pd.DataFrame:
 
     desc_col = df["crm_cd_desc"] if "crm_cd_desc" in df.columns else None
 
-    # MO codes are consulted here ONLY as a transient hint to help resolve
-    # ambiguous category cases. The MO_CODES.csv lookup table itself is not
-    # merged into the dataset — but the raw `Mocodes` column from the
-    # original data IS kept as-is in the output (see main()), so it's
-    # available as a feature for downstream work.
+    # MO codes only feed the category hint; the raw Mocodes column is left untouched.
     mo_hint = None
     mo_col = next((c for c in df.columns if "mocode" in c or c == "mocodes"), None)
     if mo_col and mo_code_to_cat:
@@ -383,9 +331,6 @@ def categorize_data(df: pd.DataFrame, mo_code_to_cat: dict) -> pd.DataFrame:
     print("  Crime 'category' assigned (Violent / Property / Sexual Assault / Vehicle / Other):")
     print(df["category"].value_counts().to_string())
     print(f"\n  Total columns after categorization : {df.shape[1]}")
-    print("  ('category' is the only new column added in this step. The raw "
-          "'Mocodes' column from the original data is preserved as-is in the "
-          "output for downstream MO-code feature engineering.)")
     return df
 
 
@@ -402,9 +347,6 @@ def main():
     print(f"  Output dir   : {OUT_DIR}")
 
     crime_path, mo_path = find_input_files()
-
-    # MO_CODES.csv is read only to build a temporary code->category lookup
-    # used during category assignment. It is not merged into the dataset.
     mo_code_to_cat = load_mo_code_categories(mo_path)
 
     df = pd.read_csv(crime_path, low_memory=False)
@@ -412,13 +354,6 @@ def main():
 
     df = clean_data(df)
     df = categorize_data(df, mo_code_to_cat)
-
-    # NOTE: the raw Mocodes column is intentionally KEPT in the cleaned
-    # output (not dropped). It's still the original space-separated code
-    # string from the source data — useful as a feature on its own, and
-    # whoever owns feature engineering can parse it further downstream.
-    # We only ever used MO_CODES.csv transiently above to help assign
-    # `category`; that lookup itself is not merged into the dataset.
 
     out_csv = cfg.CLEANED_DATA_PATH
     df.to_csv(out_csv, index=False)

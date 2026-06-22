@@ -1,45 +1,10 @@
 """
-model_xgboost.py
-================
-LA Crime Data — XGBoost (Gradient-Boosted Trees)
+XGBoost classifier for the `category` target. One of the five comparison models.
 
-Predicts the 5-class `category` target (Violent / Property / Sexual Assault /
-Vehicle / Other — created in data_cleaning.py) from time, location, victim
-demographic, and premise-type features.
-
-This is ONE model in the 5-model comparison project (logistic regression,
-decision tree, XGBoost, random forest, neural network). It plugs into the shared
-architecture defined in src/config.py:
-
-    * reads the engineered features   -> data/processed/la_crime_features.csv
-    * reuses the SHARED train/test split (cfg.SPLIT_INDICES_PATH) so every model
-      is evaluated on the identical held-out rows
-    * pulls hyperparameters           -> cfg.MODEL_PARAMS["xgboost"]
-    * writes all artifacts            -> outputs/xgboost_output/
-    * upserts its metrics             -> outputs/model_comparison_summary.csv
-                                         (keyed by model_key="xgboost")
-
-It uses the SAME approved feature set and the SAME random seed
-(cfg.RANDOM_SEED) as the logistic regression model, so the comparison is fair.
-
-Usage:
-    python models/model_xgboost.py
-
-Produces (in outputs/xgboost_output/):
-    confusion_matrix_baseline.png
-    confusion_matrix_tuned.png
-    roc_curves_tuned.png
-    feature_importance.png
-    precision_recall_f1_by_class.png
-    baseline_vs_tuned_metrics.png
-    training_curve.png
-    class_distribution.png
-    shap_summary_bar.png              <- global SHAP feature importance (all classes)
-    shap_beeswarm_<class>.png         <- per-class SHAP direction + magnitude
-    shap_feature_importance.csv       <- mean|SHAP| per feature, per class + overall
-    grid_search_results.csv
-    model_comparison_summary.csv      <- this model's rows (also upserted to the shared file)
-    model_xgboost.joblib              <- serialized tuned pipeline + label encoder
+Reads data/processed/la_crime_features.csv, reuses the shared train/test split,
+takes its hyperparameters from config, and writes plots, metrics, SHAP outputs,
+and the saved model to outputs/xgboost_output/. Same feature set and seed as the
+other models so the results are comparable.
 """
 
 import sys
@@ -72,16 +37,15 @@ except ImportError:
     print("[WARN] shap not installed. Run: pip install shap")
     print("       The SHAP explainability stage will be skipped.")
 
-# All paths / settings (seed, target, split, hyperparameters) come from src/config.py.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 import config as cfg
 
 # =============================================================================
-# 0.  REPRODUCIBILITY  &  PATHS  (resolved from the central config)
+# 0.  SETUP
 # =============================================================================
 
 MODEL_KEY   = "xgboost"
-RANDOM_SEED = cfg.RANDOM_SEED    # shared across all 5 models for a fair comparison
+RANDOM_SEED = cfg.RANDOM_SEED
 np.random.seed(RANDOM_SEED)
 
 FEATURES_PATH = cfg.FEATURES_DATA_PATH
@@ -95,24 +59,19 @@ CATEGORY_COLORS = {
     "Vehicle": "#F4A261", "Other": "#6C757D",
 }
 
-# Approved feature set — IDENTICAL to model_logistic_regression.py so the two
-# models are compared on the same inputs. weapon_desc / status_desc are excluded
-# on purpose: they are downstream consequences of the crime category and would
-# leak the target. Any column missing from the features file (e.g. disabled via
-# config.FEATURE_CATALOGUE) is skipped so the model still runs.
+# Feature set shared by all models. weapon_desc / status_desc are left out as they
+# leak the target. Missing columns (e.g. disabled in config) are skipped.
 NUMERIC_FEATURE_COLUMNS     = ["lat", "lon", "vict_age", "hour", "month", "day_of_week"]
 CATEGORICAL_FEATURE_COLUMNS = ["area_name", "vict_sex", "vict_descent", "premis_group"]
 
 TARGET_COLUMN = cfg.TARGET_COLUMN
 
-# How many held-out rows to explain with SHAP. TreeExplainer is exact & fast, but
-# beeswarm plots get cluttered (and slower) with too many points — 2000 is a good
-# balance of speed and legibility. Raise for more stable global estimates.
+# Rows sampled for SHAP. Kept small to keep beeswarm plots readable and fast.
 SHAP_SAMPLE_SIZE = 2000
 
 
 def find_features_file() -> Path:
-    """Return the engineered features dataset path from config, erroring if absent."""
+    """Return the features dataset path, erroring if the pipeline hasn't run."""
     path = cfg.FEATURES_DATA_PATH
     if not path.exists():
         print(f"\n  [ERROR] Could not find the engineered features file at {path}")
@@ -141,17 +100,13 @@ def load_data() -> pd.DataFrame:
 # =============================================================================
 
 def select_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Select this model's approved feature set from the already-engineered features
-    dataset (feature_engineering.py already derived hour / month / day_of_week /
-    premis_group, so nothing is re-derived here). Columns absent from the file
-    are skipped so the model degrades gracefully.
-    """
+    """Keep the model's feature set from the engineered data. Missing columns are
+    skipped so a disabled feature doesn't break the run."""
     print(f"\n{'='*70}")
     print("  STEP 2 – FEATURE SELECTION")
     print(f"{'='*70}")
-    print("  Selected feature groups: TIME, LOCATION, VICTIM DEMOGRAPHICS, PREMISE")
-    print("  Excluded on purpose: weapon_desc, status_desc (would leak the target)")
+    print("  Groups: time, location, victim demographics, premise")
+    print("  Left out: weapon_desc, status_desc (leak the target)")
 
     wanted  = NUMERIC_FEATURE_COLUMNS + CATEGORICAL_FEATURE_COLUMNS
     present = [c for c in wanted if c in df.columns]
@@ -175,13 +130,8 @@ def select_features(df: pd.DataFrame) -> pd.DataFrame:
 # =============================================================================
 
 def build_preprocessor(work: pd.DataFrame):
-    """
-    XGBoost is a tree ensemble, so — unlike logistic regression — it needs NO
-    feature scaling (splits are threshold-based and scale-invariant). We still:
-      * impute numeric gaps with the column MEDIAN (robust to outliers), and
-      * one-hot encode categoricals (handle_unknown='ignore' so unseen test
-        categories become all-zeros instead of crashing).
-    """
+    """Median-impute numerics and one-hot encode categoricals. No scaling: tree
+    splits are scale-invariant. handle_unknown='ignore' covers unseen categories."""
     print(f"\n{'='*70}")
     print("  STEP 3 – PRE-PROCESSING  (impute + one-hot, no scaling for trees)")
     print(f"{'='*70}")
@@ -210,12 +160,8 @@ def build_preprocessor(work: pd.DataFrame):
 # =============================================================================
 
 def load_or_create_split(work: pd.DataFrame):
-    """
-    Reuse the shared split saved by whichever model ran first, so every model in
-    the comparison evaluates on the EXACT same held-out rows. If the shared file
-    doesn't exist yet, create the split here (same seed / stratification as the
-    other models) and save it for the rest of the team.
-    """
+    """Load the shared split if it exists so all models use the same held-out rows;
+    otherwise create it (same seed/stratification) and save it."""
     print(f"\n{'='*70}")
     print("  STEP 4 – TRAIN / TEST SPLIT")
     print(f"{'='*70}")
@@ -230,8 +176,7 @@ def load_or_create_split(work: pd.DataFrame):
         test_idx  = [i for i in split.loc[split["split"] == "test",  "row_index"] if i in work.index]
         X_train, y_train = X.loc[train_idx], y.loc[train_idx]
         X_test,  y_test  = X.loc[test_idx],  y.loc[test_idx]
-        print(f"  Reusing SHARED split        : {split_path}")
-        print(f"  (identical held-out rows as every other model in the comparison)")
+        print(f"  Reusing shared split        : {split_path}")
     else:
         X_train, X_test, y_train, y_test, idx_train, idx_test = train_test_split(
             X, y, work.index,
@@ -259,19 +204,8 @@ def load_or_create_split(work: pd.DataFrame):
 # =============================================================================
 
 def build_baseline_model(preprocessor, n_classes: int):
-    """
-    Baseline XGBoost with the sensible defaults from config.MODEL_PARAMS.
-
-    Why XGBoost for this task:
-      - It's a gradient-boosted tree ensemble that captures NON-LINEAR feature
-        interactions (e.g. how hour-of-day interacts with area and premise) that
-        the linear logistic-regression baseline cannot — making it a natural
-        higher-capacity comparison point.
-      - tree_method='hist' makes it fast on this ~900k-row dataset.
-      - It handles the mixed numeric/one-hot feature space well and produces
-        calibrated-enough class probabilities for ROC-AUC / log-loss.
-    """
-    base = dict(PARAMS["baseline"])   # copy so we can safely augment
+    """Baseline XGBoost using the defaults from config."""
+    base = dict(PARAMS["baseline"])
     model = XGBClassifier(
         **base,
         num_class=n_classes,
@@ -282,11 +216,7 @@ def build_baseline_model(preprocessor, n_classes: int):
 
 
 def tune_model(preprocessor, X_train, y_train, n_classes: int):
-    """
-    GridSearchCV over the config-defined search space, scored on macro-F1 with
-    StratifiedKFold (each fold preserves class proportions — important given the
-    imbalanced target, so the rare Sexual Assault class isn't lost in some folds).
-    """
+    """GridSearchCV over the config grid, scored on macro-F1 with stratified folds."""
     print(f"\n{'='*70}")
     print("  STEP 6 – HYPERPARAMETER TUNING (GridSearchCV)")
     print(f"{'='*70}")
@@ -467,19 +397,16 @@ def plot_baseline_vs_tuned(baseline, tuned, filename: str):
 
 def plot_training_curve(best_params, preprocessor, X_train, y_train_enc,
                         X_test, y_test_enc, n_classes: int, filename: str):
-    """
-    Refit the tuned hyperparameters once with an eval_set so we can plot
-    multi-class log-loss vs. boosting round for both train and test — a clear
-    view of convergence and any over-fitting gap.
-    """
+    """Refit the tuned params with an eval_set to plot train/test log-loss per
+    boosting round (shows convergence and any overfitting gap)."""
     print(f"\n  [PLOT] Training curve (mlogloss vs boosting round)")
     clf_params = {k.replace("classifier__", ""): v for k, v in best_params.items()}
     base = dict(PARAMS["baseline"]); base.update(clf_params)
-    # Settings supplied explicitly below; drop any duplicates from the config copy.
+    # These are passed explicitly below; drop them from the config copy.
     for k in ("num_class", "random_state", "eval_metric"):
         base.pop(k, None)
 
-    # Apply the fitted preprocessing, then train a bare booster with eval tracking.
+    # Apply the fitted preprocessing, then train a booster with eval tracking.
     Xtr = preprocessor.fit_transform(X_train)
     Xte = preprocessor.transform(X_test)
     model = XGBClassifier(
@@ -518,12 +445,10 @@ def plot_class_distribution(work: pd.DataFrame, filename: str):
 
 
 # =============================================================================
-# 7b.  SHAP EXPLAINABILITY  (exact tree attributions for the tuned model)
+# 7b.  SHAP EXPLAINABILITY
 # =============================================================================
-# SHAP answers a different question than the gain-based feature_importance.png:
-# not just "which features did the trees split on most" but, per held-out
-# prediction, "how much and in which direction did each feature push the model
-# toward each crime category." shap.TreeExplainer is exact and fast for XGBoost.
+# Per-prediction feature attributions: how much, and in which direction, each
+# feature pushes the model toward each class. Complements feature_importance.png.
 
 def _clean_feature_names(names) -> list:
     """Strip the ColumnTransformer 'num__' / 'cat__' prefixes for readable plots."""
@@ -539,10 +464,8 @@ def _clean_feature_names(names) -> list:
 
 
 def _shap_values_to_list(sv, n_classes: int) -> list:
-    """Normalize TreeExplainer.shap_values output to a list of (n_samples,
-    n_features) arrays — one per class — robust across shap versions (which may
-    return a list, a (n_samples, n_features, n_classes) array, or a
-    (n_classes, n_samples, n_features) array)."""
+    """Return SHAP values as a per-class list of (n_samples, n_features) arrays,
+    handling the different shapes shap can return."""
     if isinstance(sv, list):
         return sv
     sv = np.asarray(sv)
@@ -555,13 +478,8 @@ def _shap_values_to_list(sv, n_classes: int) -> list:
 
 
 def run_shap_analysis(pipeline, X_explain_df, class_labels, sample_size=SHAP_SAMPLE_SIZE):
-    """
-    Compute SHAP values for the tuned pipeline on a sample of held-out rows and
-    write the explainability artifacts to OUT_DIR:
-        shap_summary_bar.png          - global multiclass mean|SHAP| ranking
-        shap_beeswarm_<class>.png     - per-class direction + magnitude (beeswarm)
-        shap_feature_importance.csv   - mean|SHAP| per feature, per class + overall
-    """
+    """SHAP values for the tuned model on a sample of held-out rows. Writes a global
+    bar plot, a per-class beeswarm each, and a mean|SHAP| table to OUT_DIR."""
     if not HAS_SHAP:
         print(f"\n{'='*70}")
         print("  STEP 7b – SHAP EXPLAINABILITY: SKIPPED (shap not installed)")
@@ -646,11 +564,9 @@ def write_comparison(baseline, tuned, best_params):
     print(f"\n  Macro-F1 change from tuning: {improvement:+.4f} "
           f"({'improvement' if improvement > 0 else 'no improvement / regression'})")
 
-    # Keep a copy in this model's own output folder...
+    # Local copy, plus an upsert into the shared table (re-running replaces this
+    # model's own rows rather than duplicating them).
     comparison.to_csv(OUT_DIR / "model_comparison_summary.csv", index=False)
-
-    # ...and upsert into the SHARED comparison table all 5 models contribute to.
-    # Re-running this model replaces just its own rows, so no duplicates accumulate.
     comparison = comparison.assign(model_key=MODEL_KEY)
     shared_path = cfg.COMPARISON_SUMMARY_PATH
     cfg.ensure_dir(shared_path.parent)
@@ -679,8 +595,7 @@ def main():
     df   = load_data()
     work = select_features(df)
 
-    # Drop rows with a missing target (guards against upstream edge cases) — the
-    # SAME indexing path as the other models, so shared split indices align.
+    # Drop missing-target rows the same way as the other models so the split aligns.
     before = len(work)
     work = work.dropna(subset=[TARGET_COLUMN])
     if before != len(work):
@@ -688,7 +603,7 @@ def main():
 
     plot_class_distribution(work, "class_distribution.png")
 
-    # Encode the string target to integers for XGBoost (decode back for metrics).
+    # XGBoost needs integer labels; decode back for metrics/plots.
     le = LabelEncoder().fit(work[TARGET_COLUMN])
     class_labels = list(le.classes_)
     n_classes = len(class_labels)

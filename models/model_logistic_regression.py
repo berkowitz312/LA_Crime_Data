@@ -1,59 +1,16 @@
 """
-multinomial_logistic_regression.py
-====================================
-LA Crime Data — Multinomial Logistic Regression
+Multinomial logistic regression for the `category` target. One of the five
+comparison models.
 
-Predicts the 5-class `category` target (Violent / Property / Sexual Assault /
-Vehicle / Other — created in data_cleaning.py) from time, location, victim
-demographic, and premise-type features.
+Reads data/processed/la_crime_features.csv, reuses the shared train/test split,
+takes its hyperparameters from config, and writes plots, metrics, and the saved
+model to outputs/logistic_regression_output/. Same feature set and seed as the
+other models.
 
-This is ONE model in a larger model-comparison project. It is intentionally
-scoped to multinomial logistic regression only — ensemble and deep-learning
-models are owned by teammates and will be compared against this script's
-metrics using the same train/test split (same random seed, documented below).
-
-RANDOM SEED — IMPORTANT FOR YOUR TEAM
-======================================
-    RANDOM_SEED = cfg.RANDOM_SEED  (42, defined centrally in src/config.py)
-
-Every random operation in this script (train/test split, cross-validation
-folds, solver initialization) uses this exact seed. For your model
-comparison to be fair and reproducible, anyone building another model
-(ensemble, deep learning, etc.) on this dataset should:
-    1. Use the SAME random seed (cfg.RANDOM_SEED) for their train/test split
-    2. Use the SAME stratification strategy (stratify on cfg.TARGET_COLUMN)
-    3. Ideally, load the exact split indices this script saves to
-       cfg.SPLIT_INDICES_PATH (data/processed/train_test_split_indices.csv),
-       so everyone is evaluating on the literal same held-out rows.
-
-Reads the engineered features dataset (path from src/config.py):
-    data/processed/la_crime_features.csv   (produced by feature_engineering.py)
-
-Usage:
-    python models/model_logistic_regression.py
-
-Produces (in outputs/logistic_regression_output/):
-    confusion_matrix_baseline.png
-    confusion_matrix_tuned.png
-    roc_curves_tuned.png
-    feature_importance.png
-    precision_recall_f1_by_class.png   <- generic visuals kept uniform with the
-    baseline_vs_tuned_metrics.png         other models for side-by-side comparison
-    class_distribution.png
-    model_comparison_summary.csv   <- baseline vs tuned, also upserted into the
-                                       shared outputs/model_comparison_summary.csv
-    (the shared train/test split indices are written to
-     data/processed/train_test_split_indices.csv, reused by every model)
-
-    -- Statistical diagnostics & variable-selection stage (requires
-       statsmodels — `pip install statsmodels`) --
-    vif_table.csv                       <- multicollinearity check
-    significance_iteration_log.csv      <- which variables were dropped, in
-                                            what order, and why
-    mnlogit_final_summary.txt           <- final statsmodels model summary
-                                            (coefficients, std errors, z, p)
-    influence_diagnostics.png           <- Cook's distance / leverage plot
-    outlier_flagged_rows.csv            <- rows flagged as high-influence
+A second stage (statsmodels MNLogit) adds inferential diagnostics: VIF,
+significance-driven variable selection, influence, and a linearity check. It
+runs only when statsmodels is installed and is separate from the sklearn model
+used for the comparison.
 """
 
 import sys
@@ -140,20 +97,10 @@ def load_data() -> pd.DataFrame:
 # =============================================================================
 # 2.  FEATURE SELECTION
 # =============================================================================
-# Per project scope: predict `category` using TIME + LOCATION + VICTIM
-# DEMOGRAPHICS + PREMISE features only. We deliberately EXCLUDE weapon_desc
-# and status_desc because they are downstream consequences of the crime
-# category being known (e.g. "STRONG-ARM" weapon almost certainly implies
-# a Violent/Sexual Assault crime) — including them would leak the answer
-# and produce an unrealistically easy, non-generalizable model.
 
-# Approved feature set for this model, sourced from the engineered features file
-# (feature_engineering.py). These columns are already derived upstream, so this
-# model no longer re-derives anything — it just selects what it's allowed to use.
-#   numeric     : continuous / count features standardized below
-#   categorical : one-hot encoded below
-# Any column missing from the features file (e.g. because its FEATURE_CATALOGUE
-# toggle was disabled) is silently skipped, so the model degrades gracefully.
+# Feature set shared by all models. weapon_desc / status_desc left out: they are
+# consequences of the crime type and would leak the target. Missing columns
+# (e.g. disabled in config) are skipped.
 NUMERIC_FEATURE_COLUMNS = ["lat", "lon", "vict_age", "hour", "month", "day_of_week"]
 CATEGORICAL_FEATURE_COLUMNS = ["area_name", "vict_sex", "vict_descent", "premis_group"]
 
@@ -161,28 +108,19 @@ TARGET_COLUMN = cfg.TARGET_COLUMN
 
 
 def select_and_engineer_minimal_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Selects this model's approved feature set from the already-engineered
-    features dataset. feature_engineering.py has already derived hour, month,
-    day_of_week, premis_group, etc., so no derivation happens here — only
-    column selection. Columns absent from the file (e.g. a feature disabled in
-    config.FEATURE_CATALOGUE) are skipped so the model still runs.
-
-    Deliberately EXCLUDES weapon_desc / status_desc: they are downstream
-    consequences of the crime category and would leak the target.
-    """
+    """Keep the model's feature set from the engineered data (nothing is re-derived;
+    missing columns are skipped)."""
     print(f"\n{'='*70}")
     print("  STEP 2 – FEATURE SELECTION")
     print(f"{'='*70}")
-    print("  Selected feature groups: TIME, LOCATION, VICTIM DEMOGRAPHICS, PREMISE")
-    print("  Excluded on purpose: weapon_desc, status_desc (would leak the target)")
+    print("  Groups: time, location, victim demographics, premise")
+    print("  Left out: weapon_desc, status_desc (leak the target)")
 
     wanted = NUMERIC_FEATURE_COLUMNS + CATEGORICAL_FEATURE_COLUMNS
     present = [c for c in wanted if c in df.columns]
     missing = [c for c in wanted if c not in df.columns]
     if missing:
         print(f"  [NOTE] Not in features file (skipped): {missing}")
-        print(f"         (likely disabled via config.FEATURE_CATALOGUE upstream)")
 
     if TARGET_COLUMN not in df.columns:
         print(f"\n  [ERROR] Target column '{TARGET_COLUMN}' not found in features file.")
@@ -199,58 +137,16 @@ def select_and_engineer_minimal_features(df: pd.DataFrame) -> pd.DataFrame:
 # =============================================================================
 # 3.  PREPROCESSING
 # =============================================================================
-# Each step below is explained inline — this is the "applicable for ML/DL
-# models" transformation stage requested.
 
 def explain_and_build_preprocessor(work: pd.DataFrame):
+    """Numeric: median-impute then standardize (logistic regression needs scaled
+    inputs). Categorical: impute 'Missing' then one-hot encode."""
     print(f"\n{'='*70}")
-    print("  STEP 3 – DATA PRE-PROCESSING  (with rationale for each step)")
+    print("  STEP 3 – PRE-PROCESSING")
     print(f"{'='*70}")
 
     numeric_features     = [c for c in NUMERIC_FEATURE_COLUMNS if c in work.columns]
     categorical_features = [c for c in CATEGORICAL_FEATURE_COLUMNS if c in work.columns]
-
-    print("""
-  (1) MISSING-VALUE IMPUTATION
-      Why: logistic regression cannot handle NaN values directly; the solver
-      will error out. Numeric gaps (e.g. unknown lat/lon, unknown victim age)
-      are filled with the column MEDIAN, which is robust to outliers (unlike
-      the mean) and keeps the imputed value 'typical' rather than distorting
-      the distribution. Categorical gaps (e.g. unknown premise) are filled
-      with the literal label "Missing", turning absence-of-data into its own
-      informative category rather than silently guessing a value.
-
-  (2) ONE-HOT ENCODING (categorical -> numeric)
-      Why: multinomial logistic regression is a linear model operating on
-      numeric feature vectors — it has no native concept of unordered
-      categories like "Wilshire" or "Hispanic/Latin/Mexican". One-hot
-      encoding converts each category into its own binary (0/1) column,
-      so the model can learn an independent coefficient per category without
-      imposing a false numeric ordering (e.g. encoding areas as 1, 2, 3...
-      would wrongly imply Area 3 is "more" than Area 1).
-      handle_unknown='ignore' ensures that if the test set contains a
-      category unseen during training, it's encoded as all-zeros rather
-      than crashing the pipeline.
-
-  (3) STANDARDIZATION (numeric -> zero mean, unit variance)
-      Why: logistic regression is fit via gradient-based optimization
-      (here, the lbfgs/saga solver). Features on wildly different scales
-      (e.g. latitude ~34, victim age ~0-100, hour ~0-23) cause the solver
-      to converge slowly or unevenly weight large-scale features purely
-      due to magnitude, not actual predictive importance. StandardScaler
-      rescales every numeric feature to mean=0, std=1, so the regularization
-      penalty (L2, applied uniformly) treats all features fairly and the
-      solver converges faster and more reliably.
-
-  (4) STRATIFIED TRAIN/TEST SPLIT
-      Why: our target classes (Violent / Property / Sexual Assault /
-      Vehicle / Other) are NOT evenly distributed — Property and Vehicle
-      crimes vastly outnumber Sexual Assault in raw counts. A plain random
-      split could, by chance, under-represent a rare class in the test set,
-      making evaluation metrics unstable. Stratifying on `category` ensures
-      the train and test sets preserve the same class proportions as the
-      full dataset.
-    """)
 
     numeric_pipeline = Pipeline(steps=[
         ("impute", SimpleImputer(strategy="median")),
@@ -289,7 +185,7 @@ def make_split(work: pd.DataFrame):
     )
 
     print(f"  Split        : {int((1-cfg.TEST_SIZE)*100)}% train / {int(cfg.TEST_SIZE*100)}% test")
-    print(f"  Random seed  : {RANDOM_SEED}  <-- use this exact seed for any other model")
+    print(f"  Random seed  : {RANDOM_SEED}")
     print(f"  Stratified by: '{TARGET_COLUMN}'")
     print(f"  Train shape  : {X_train.shape}")
     print(f"  Test shape   : {X_test.shape}")
@@ -300,8 +196,7 @@ def make_split(work: pd.DataFrame):
     })
     print(dist.to_string())
 
-    # Save the exact split indices so teammates building other models can
-    # reuse the identical train/test rows for a fair comparison.
+    # Save the split indices so every model trains/tests on the same rows.
     split_df = pd.DataFrame({
         "row_index": list(idx_train) + list(idx_test),
         "split": ["train"] * len(idx_train) + ["test"] * len(idx_test),
@@ -309,9 +204,7 @@ def make_split(work: pd.DataFrame):
     split_path = cfg.SPLIT_INDICES_PATH
     cfg.ensure_dir(split_path.parent)
     split_df.to_csv(split_path, index=False)
-    print(f"\n  Saved exact split indices -> {split_path}")
-    print(f"  (Share this file + RANDOM_SEED={RANDOM_SEED} with your team so "
-          f"everyone evaluates on identical held-out rows.)")
+    print(f"\n  Saved split indices -> {split_path}")
 
     return X_train, X_test, y_train, y_test
 
@@ -321,19 +214,9 @@ def make_split(work: pd.DataFrame):
 # =============================================================================
 
 def build_baseline_model(preprocessor):
-    """
-    Baseline multinomial logistic regression with default-ish, sensible
-    settings. With a multi-class target and the 'lbfgs' or 'saga' solver,
-    scikit-learn fits a genuine multinomial (softmax) model natively — a
-    single joint model across all classes via cross-entropy loss — rather
-    than the older One-vs-Rest scheme (which fits an independent binary
-    classifier per class and can give miscalibrated, inconsistent
-    probabilities across classes). In recent scikit-learn versions this
-    multinomial behavior is automatic for multi-class problems with these
-    solvers, so no explicit `multi_class` argument is needed (and newer
-    versions no longer accept one).
-    """
-    base = PARAMS["baseline"]   # from config.MODEL_PARAMS["logistic_regression"]
+    """Baseline logistic regression using the defaults from config. With lbfgs/saga
+    on a multi-class target, sklearn fits a true multinomial (softmax) model."""
+    base = PARAMS["baseline"]
     model = LogisticRegression(
         penalty=base["penalty"],
         solver=base["solver"],   # lbfgs supports true multinomial loss natively
@@ -421,57 +304,17 @@ def plot_roc_curves(y_test, y_proba, class_labels, filename: str):
 
 
 # =============================================================================
-# 6.  HYPERPARAMETER TUNING  (advanced technique)
+# 6.  HYPERPARAMETER TUNING
 # =============================================================================
 
 def tune_model(preprocessor, X_train, y_train):
-    """
-    GridSearchCV over the regularization strength (C) and penalty type.
-
-    Why these specific hyperparameters:
-      - C (inverse regularization strength): controls the trade-off between
-        fitting the training data closely vs. keeping coefficients small to
-        avoid overfitting. We search a wide log-spaced range so both heavily
-        regularized (small C) and lightly regularized (large C) options are
-        considered.
-      - penalty: 'l2' (ridge-style, shrinks all coefficients smoothly) vs
-        'l1' (lasso-style, can zero out uninformative one-hot categories
-        entirely, effectively performing feature selection). Comparing both
-        lets the data decide whether sparsity helps.
-      - solver: 'saga' is used for tuning because it's the only solver that
-        supports both l1 and l2 penalties with multinomial loss at this
-        scale; lbfgs only supports l2.
-
-    Why GridSearchCV with StratifiedKFold (not plain KFold): the same class
-    imbalance argument as the train/test split applies here — each fold must
-    preserve class proportions, or some folds could end up with very few
-    Sexual Assault examples, making the cross-validated score noisy and
-    unreliable for comparing hyperparameter combinations fairly.
-    """
+    """GridSearchCV over C and penalty (l1/l2), scored on macro-F1 with stratified
+    folds. Tuning uses the saga solver, which supports both penalties."""
     print(f"\n{'='*70}")
     print("  STEP 6 – HYPERPARAMETER TUNING (GridSearchCV)")
     print(f"{'='*70}")
-    print("""
-  Why we tune:
-    The baseline model uses default-ish settings (C=1.0, l2 penalty). These
-    are reasonable starting points but not necessarily optimal for THIS
-    dataset's class balance and feature structure. Tuning systematically
-    searches a grid of alternatives and picks the combination that performs
-    best under cross-validation — i.e. data-driven model selection instead
-    of guessing.
-
-  Search space:
-    C       : [0.01, 0.1, 1, 10]
-    penalty : ['l1', 'l2']
-    solver  : 'saga' (required for l1 + multinomial)
-
-  Cross-validation:
-    StratifiedKFold, 3 folds, scored on macro-F1 (treats every class as
-    equally important regardless of how many examples it has — appropriate
-    here since Sexual Assault, our rarest class, matters just as much for
-    the project's purposes as the much more frequent Property/Vehicle
-    classes).
-    """)
+    print(f"  Grid: {PARAMS['param_grid']}")
+    print(f"  CV  : StratifiedKFold({cfg.CV_FOLDS}), scoring=f1_macro")
 
     model = LogisticRegression(
         solver=PARAMS.get("tuning_solver", "saga"),
@@ -611,27 +454,13 @@ def plot_class_distribution(work: pd.DataFrame, filename: str):
 # =============================================================================
 # 9.  STATISTICAL DIAGNOSTICS & SIGNIFICANCE-DRIVEN VARIABLE SELECTION
 # =============================================================================
-# This stage answers a different question than steps 5-7: not "how accurate
-# is the model on held-out data" but "which variables actually matter, in a
-# classical inferential-statistics sense, and is the model well-specified?"
-#
-# sklearn's LogisticRegression has no concept of standard errors or p-values
-# — it's built purely for prediction, not inference. To get real Wald tests
-# we fit a SEPARATE model using statsmodels' MNLogit, which is built for
-# exactly this. The sklearn pipeline above remains the model used for the
-# team's accuracy/F1/ROC-AUC comparison; this statsmodels fit exists only to
-# interpret and refine which variables belong in an explanatory model.
+# sklearn gives no p-values, so this stage fits a separate statsmodels MNLogit
+# for inference: which variables are significant and whether the model is well
+# specified. It does not affect the sklearn model used for the comparison.
 
 def build_design_matrix(work: pd.DataFrame, numeric_features: list, categorical_features: list):
-    """
-    Builds a statsmodels-ready design matrix: numeric columns imputed +
-    standardized (same logic as the sklearn pipeline, for consistency), and
-    categorical columns one-hot encoded with one level dropped per feature
-    (drop_first=True) to avoid the dummy-variable trap — MNLogit, like any
-    regression-style model, needs a reference level for each categorical
-    predictor or the design matrix becomes singular (perfectly
-    multicollinear) and cannot be inverted.
-    """
+    """Build a statsmodels design matrix: numerics imputed and standardized,
+    categoricals one-hot encoded with drop_first to avoid the dummy-variable trap."""
     X = work.drop(columns=[TARGET_COLUMN]).copy()
 
     for col in numeric_features:
@@ -653,19 +482,8 @@ def build_design_matrix(work: pd.DataFrame, numeric_features: list, categorical_
 
 
 def compute_vif(X_encoded: pd.DataFrame) -> pd.DataFrame:
-    """
-    Variance Inflation Factor for each predictor: VIF_i = 1 / (1 - R_i^2),
-    where R_i^2 comes from regressing predictor i on all other predictors.
-    High VIF means predictor i is well-explained by the others — i.e. it
-    carries mostly redundant information, inflating coefficient standard
-    errors and making individual p-values unreliable even if the model's
-    overall fit is fine.
-
-    Guideline used here (as specified):
-        VIF < 5   -> fine
-        5-10      -> investigate
-        > 10      -> problematic, consider dropping/combining
-    """
+    """Variance Inflation Factor per predictor (1 / (1 - R^2) from regressing it on
+    the others). High VIF flags multicollinearity. Bands: <5 ok, 5-10 watch, >10 bad."""
     from numpy.linalg import LinAlgError
 
     X_with_const = sm.add_constant(X_encoded)
@@ -695,19 +513,10 @@ def compute_vif(X_encoded: pd.DataFrame) -> pd.DataFrame:
 
 
 def fit_mnlogit(X_encoded: pd.DataFrame, y: pd.Series, reference_class: str):
-    """
-    Fits statsmodels MNLogit. The reference (baseline) category is the one
-    every other class's coefficients are interpreted relative to — e.g. a
-    coefficient under "Vehicle" means "log-odds of Vehicle vs. {reference}
-    per unit change in this predictor." We use the most frequent class as
-    reference (Property in this dataset), which is the conventional choice
-    and keeps coefficients easiest to interpret against the most common
-    baseline outcome.
-    """
+    """Fit statsmodels MNLogit with reference_class as the baseline category that all
+    other classes' coefficients are read against."""
     y_codes = y.astype("category")
-    # Re-order categories so reference_class is first -> statsmodels treats
-    # the FIRST category alphabetically/numerically as baseline by default;
-    # we control this explicitly via category ordering.
+    # Put reference_class first so statsmodels treats it as the baseline.
     cats = [reference_class] + [c for c in y_codes.cat.categories if c != reference_class]
     y_codes = y_codes.cat.reorder_categories(cats, ordered=False)
     y_numeric = y_codes.cat.codes
@@ -719,12 +528,8 @@ def fit_mnlogit(X_encoded: pd.DataFrame, y: pd.Series, reference_class: str):
 
 
 def summarize_significance(result, class_categories, reference_class: str) -> pd.DataFrame:
-    """
-    Extracts a tidy {feature, class, coef, std_err, z, p_value} table from
-    the fitted MNLogit result across all non-reference classes, so we can
-    rank/filter variables by significance in one place instead of reading
-    the dense statsmodels text summary by hand.
-    """
+    """Return a tidy {feature, class, coef, std_err, z, p_value} table from the
+    fitted MNLogit result, across all non-reference classes."""
     params = result.params      # rows = predictors, columns = one per non-reference class
     bse    = result.bse
     zvals  = result.tvalues
@@ -748,45 +553,14 @@ def summarize_significance(result, class_categories, reference_class: str) -> pd
 def iterative_backward_elimination(work: pd.DataFrame, numeric_features: list,
                                    categorical_features: list, reference_class: str,
                                    p_threshold: float = 0.05, max_iterations: int = 15):
-    """
-    Iterative significance-driven variable selection:
-        1. Fit MNLogit with all current candidate predictors.
-        2. For each predictor, take its BEST (lowest) p-value across all
-           non-reference classes — i.e. "is this variable significant for
-           AT LEAST ONE category." A variable significant for distinguishing
-           even one class is still explanatorily useful, so we only drop it
-           if it's insignificant everywhere.
-        3. If every remaining predictor has best-p < threshold, stop.
-        4. Otherwise, drop the single variable with the worst (highest)
-           best-p-value, and refit (one variable at a time — dropping
-           multiple at once risks removing a variable whose apparent
-           insignificance was actually caused by collinearity with another
-           soon-to-be-dropped variable).
-        5. Also fold in VIF: if a variable has VIF > 10, it's flagged as a
-           multicollinearity-driven removal candidate even if its p-value
-           looks borderline-significant, since its standard error (and
-           therefore its p-value) is inflated and untrustworthy.
-
-    Returns the final reduced design matrix, the final fitted result, and a
-    log DataFrame recording every drop decision for transparency.
-    """
+    """Backward elimination on p-values: each round drop the predictor with the
+    worst best-across-classes p-value (keeping anything significant for at least one
+    class), refitting until all remain significant or max_iterations is hit. VIF is
+    logged alongside as context. Returns the reduced matrix, final fit, and a drop log."""
     print(f"\n{'='*70}")
     print("  STEP 9b – ITERATIVE SIGNIFICANCE-DRIVEN VARIABLE SELECTION")
     print(f"{'='*70}")
-    print(f"""
-  Procedure (p-value threshold = {p_threshold}):
-    1. Fit the full model.
-    2. For each predictor, look at its smallest p-value across all
-       (non-reference-class vs reference) comparisons — keep it if THAT
-       is below {p_threshold}.
-    3. Drop the single worst offender, refit, repeat.
-    4. Also cross-check VIF > 10 each round — a variable flagged by both
-       a high p-value AND high VIF is a strong removal candidate, since
-       multicollinearity directly inflates p-values and makes individual
-       significance tests unreliable.
-    5. Stop when everything remaining is significant for at least one
-       class, or after {max_iterations} iterations (safety cap).
-    """)
+    print(f"  p-value threshold = {p_threshold}, max iterations = {max_iterations}")
 
     X_encoded = build_design_matrix(work, numeric_features, categorical_features)
     y = work[TARGET_COLUMN]
@@ -852,34 +626,12 @@ def iterative_backward_elimination(work: pd.DataFrame, numeric_features: list,
 
 
 def plot_influence_diagnostics(result, X_encoded: pd.DataFrame, work: pd.DataFrame):
-    """
-    Cook's distance and leverage are classically defined for linear/binary
-    logistic regression via the hat matrix; statsmodels' MNLogit does not
-    expose a built-in get_influence() (unlike sm.Logit / sm.OLS). To still
-    give a genuinely useful influence diagnostic for the MULTINOMIAL case,
-    we fit an auxiliary one-vs-reference binary logistic regression for the
-    single largest non-reference class and pull standard influence measures
-    (Cook's distance, leverage) from THAT — a documented, standard fallback
-    approach for approximating per-observation influence in a multinomial
-    setting. This is explained in the printed output and the plot title so
-    nothing is implied to be exact for all classes simultaneously.
-    """
+    """Cook's distance / leverage for the multinomial model, approximated via an
+    auxiliary one-vs-rest binary Logit on the largest non-reference class (MNLogit
+    has no get_influence). Single-class lens, not an exact multinomial measure."""
     print(f"\n{'='*70}")
     print("  STEP 9c – INFLUENCE DIAGNOSTICS  (outliers, leverage)")
     print(f"{'='*70}")
-    print("""
-  Note on method: statsmodels' MNLogit doesn't expose Cook's distance /
-  leverage directly (these are defined via the hat matrix, which is
-  well-established for binary logistic regression but not natively
-  extended to the multinomial case in this library). As a standard
-  workaround, we fit an auxiliary ONE-VS-REFERENCE binary logistic
-  regression for the single most-common non-reference class and compute
-  Cook's distance / leverage from that fit. This approximates which
-  observations are most influential to the overall model, while being
-  transparent that it's a single-class lens rather than a true
-  multinomial generalization (no fully agreed-upon multinomial Cook's
-  distance exists in standard statistical practice).
-    """)
 
     y = work[TARGET_COLUMN]
     class_counts = y.value_counts()
@@ -938,31 +690,13 @@ def plot_influence_diagnostics(result, X_encoded: pd.DataFrame, work: pd.DataFra
 
 
 def check_linearity_assumption(work: pd.DataFrame, numeric_features: list):
-    """
-    Quick, practical check of the 'linearity in the logit' assumption: bins
-    each continuous predictor into deciles and plots the EMPIRICAL log-odds
-    of each non-reference class (vs. reference) against the decile midpoint.
-    If the relationship looks like a smooth, roughly straight line, the
-    linearity assumption is reasonable; visible curvature suggests a
-    transformation (log, polynomial term, or spline) may be warranted for
-    that predictor. This is a lighter-weight, visual alternative to a formal
-    Box-Tidwell test, which requires fitting interaction terms with log(X)
-    for every continuous predictor and is easy to misapply with zero/negative
-    values (e.g. lat/lon here can be negative, which breaks log(X) directly).
-    """
+    """Visual check of linearity-in-the-logit: bin each numeric predictor into
+    deciles and plot the empirical log-odds (each class vs reference) per bin.
+    Straight lines support the assumption; curves suggest a transform. A lighter
+    alternative to Box-Tidwell, which breaks on the negative lat/lon values here."""
     print(f"\n{'='*70}")
     print("  STEP 9d – LINEARITY OF CONTINUOUS PREDICTORS WITH THE LOGIT")
     print(f"{'='*70}")
-    print("""
-  Why this matters: multinomial logistic regression assumes each continuous
-  predictor relates LINEARLY to the log-odds of each class vs. the
-  reference — not that the predictor relates linearly to the class itself.
-  We check this empirically by binning each continuous predictor into
-  deciles and plotting the observed log-odds per bin. A roughly straight
-  line supports the assumption; a curved or non-monotonic pattern suggests
-  the raw predictor should be transformed (e.g. age might need a quadratic
-  term to capture a non-monotonic risk profile across the lifespan).
-    """)
 
     y = work[TARGET_COLUMN]
     reference_class = y.value_counts().idxmax()
@@ -1008,12 +742,8 @@ def check_linearity_assumption(work: pd.DataFrame, numeric_features: list):
 
 
 def check_sample_size_rule(work: pd.DataFrame, n_predictors: int):
-    """
-    Rule of thumb (as specified): at least 10-20 observations per parameter
-    per category. With k predictors and J classes, a multinomial model
-    fits (J-1) sets of coefficients, so the rule is applied per
-    non-reference class.
-    """
+    """Check the rule of thumb of 10-20 observations per parameter, applied to the
+    smallest class (the binding constraint in a multinomial model)."""
     print(f"\n{'='*70}")
     print("  STEP 9e – SAMPLE SIZE CHECK")
     print(f"{'='*70}")
@@ -1045,13 +775,9 @@ def check_sample_size_rule(work: pd.DataFrame, n_predictors: int):
 
 
 def run_statistical_diagnostics(work: pd.DataFrame, numeric_features: list, categorical_features: list):
-    """
-    Orchestrates the full diagnostics stage: assumption checklist, initial
-    VIF + significance, iterative variable selection, final explanatory
-    model summary, influence diagnostics, and linearity check. Returns the
-    final reduced feature set and fitted statsmodels result for the
-    conclusions section.
-    """
+    """Run the diagnostics stage: correlation/VIF, sample-size and linearity checks,
+    backward elimination, final MNLogit summary, and influence diagnostics. Returns
+    a dict for the conclusions, or None if statsmodels is missing."""
     if not HAS_STATSMODELS:
         print(f"\n{'='*70}")
         print("  STEP 9 – STATISTICAL DIAGNOSTICS: SKIPPED")
@@ -1062,33 +788,14 @@ def run_statistical_diagnostics(work: pd.DataFrame, numeric_features: list, cate
         return None
 
     print(f"\n{'#'*70}")
-    print("  STEP 9 – STATISTICAL SIGNIFICANCE & MODEL DIAGNOSTICS")
-    print(f"  (separate from the sklearn predictive model above — this stage uses")
-    print(f"   statsmodels MNLogit purely for statistical inference / explanation)")
+    print("  STEP 9 – STATISTICAL SIGNIFICANCE & MODEL DIAGNOSTICS (statsmodels MNLogit)")
     print(f"{'#'*70}")
-
-    print("""
-  Assumption checklist for multinomial logistic regression:
-    1. Target is categorical with > 2 mutually exclusive categories
-       -> satisfied: 'category' has 5 mutually exclusive classes.
-    2. Independent observations
-       -> assumed satisfied (each row is a distinct, independently reported
-          crime incident); cannot be tested purely from the data itself,
-          this is a design assumption about how the data was collected.
-    3. No perfect multicollinearity
-       -> checked explicitly below via correlation + VIF.
-    4. Linearity of continuous predictors with the log-odds
-       -> checked visually below (decile log-odds plot).
-    5. No extreme influential outliers
-       -> checked below via Cook's distance / leverage.
-    6. Sufficient sample size (10-20 obs per parameter per category)
-       -> checked below.
-    """)
+    # Assumptions checked below: no perfect multicollinearity (correlation + VIF),
+    # linearity in the logit, no extreme influential outliers, adequate sample size.
 
     y = work[TARGET_COLUMN]
     reference_class = y.value_counts().idxmax()
-    print(f"  Reference category for all comparisons below: '{reference_class}' "
-          f"(most frequent class)")
+    print(f"  Reference category: '{reference_class}' (most frequent class)")
 
     # ---- Correlation matrix among numeric predictors ----
     print(f"\n  -- Correlation matrix (numeric predictors) --")
@@ -1173,8 +880,7 @@ def main():
     df   = load_data()
     work = select_and_engineer_minimal_features(df)
 
-    # Drop rows where target itself is missing (shouldn't normally happen,
-    # but guards against any upstream edge cases)
+    # Drop any rows with a missing target.
     before = len(work)
     work = work.dropna(subset=[TARGET_COLUMN])
     if before != len(work):
@@ -1189,20 +895,6 @@ def main():
     print(f"\n{'='*70}")
     print("  STEP 5 – BASELINE MODEL")
     print(f"{'='*70}")
-    print("""
-  Model: Multinomial Logistic Regression (default-ish settings)
-  Why this model for this task:
-    - The target has 5 unordered classes -> this is a genuine multi-class
-      classification problem, and multinomial logistic regression is the
-      direct generalization of binary logistic regression to that setting
-      (a single softmax layer over all classes, fit jointly via cross-entropy
-      loss) — exactly what was requested for this piece of the comparison.
-    - It produces well-calibrated class probabilities (useful for the
-      ROC-AUC and log-loss metrics used elsewhere in the team's comparison).
-    - It's highly interpretable: each feature gets one coefficient per
-      class, letting us directly inspect which features push predictions
-      toward which category (see feature_importance.png).
-    """)
 
     baseline_pipeline = build_baseline_model(preprocessor)
     baseline_pipeline.fit(X_train, y_train)
@@ -1252,12 +944,9 @@ def main():
     print(f"\n  Macro-F1 change from tuning: {improvement:+.4f} "
           f"({'improvement' if improvement > 0 else 'no improvement / regression'})")
 
-    # Keep a copy in this model's own output folder...
+    # Local copy, plus an upsert into the shared table (re-running replaces this
+    # model's own rows rather than duplicating them).
     comparison.to_csv(OUT_DIR / "model_comparison_summary.csv", index=False)
-
-    # ...and upsert into the SHARED comparison table all 5 models contribute to.
-    # Re-running this model replaces just its own rows, so the table never
-    # accumulates duplicates.
     comparison = comparison.assign(model_key=MODEL_KEY)
     shared_path = cfg.COMPARISON_SUMMARY_PATH
     cfg.ensure_dir(shared_path.parent)
@@ -1271,8 +960,6 @@ def main():
     combined.to_csv(shared_path, index=False)
     print(f"\n  -> saved (this model): {OUT_DIR / 'model_comparison_summary.csv'}")
     print(f"  -> updated (shared)  : {shared_path}")
-    print(f"  (Teammates: every model upserts its rows here keyed by 'model_key' "
-          f"for one unified comparison table.)")
 
     # ---- Statistical diagnostics & significance-driven variable selection ----
     diagnostics = run_statistical_diagnostics(work, num_feats, cat_feats)
@@ -1282,88 +969,28 @@ def main():
     print("  STEP 11 – CONCLUSIONS")
     print(f"{'='*70}")
     top_class = pd.Series(y_test).value_counts().idxmax()
-    print(f"""
-  Summary of findings:
-
-  1. Overall performance: the tuned multinomial logistic regression reached
-     {tuned_results['accuracy']*100:.1f}% accuracy and a macro-F1 of
-     {tuned_results['macro_f1']:.3f} on the held-out test set (seed={RANDOM_SEED}).
-
-  2. Tuning impact: hyperparameter search changed macro-F1 by
-     {improvement:+.4f} versus the untuned baseline, landing on
-     {best_params}. {"This shows tuning meaningfully helped." if abs(improvement) > 0.01 else "This suggests the baseline defaults were already close to optimal for this feature set, and further gains likely require richer features or a more flexible model class rather than more tuning of this linear model."}
-
-  3. Class-level behavior: check confusion_matrix_tuned.png — logistic
-     regression, being a linear model, tends to perform best on the
-     majority classes ('{top_class}' is the most frequent in this test set)
-     and struggles more on minority classes with overlapping feature
-     distributions (commonly Sexual Assault, given its much smaller sample
-     size and feature overlap with other categories in time/location/premise
-     space alone, without weapon or MO-derived signals).
-
-  4. Why this matters for the team's comparison: as a LINEAR model,
-     multinomial logistic regression provides an interpretable performance
-     FLOOR for this task. Any non-linear model (ensemble methods like
-     Random Forest/Gradient Boosting, or a deep learning model) should be
-     benchmarked against these exact numbers using the same random seed
-     ({RANDOM_SEED}) and train/test split (see train_test_split_indices.csv).
-     If those models substantially outperform this one, it indicates real
-     non-linear structure in the relationship between location/time/victim/
-     premise features and crime category that a linear decision boundary
-     cannot capture.
-
-  5. Feature signal: see feature_importance.png for which standardized
-     features carry the largest average coefficient magnitude across
-     classes — useful context for your team when interpreting why other
-     model types might pick up on similar or different signals.
-    """)
+    print(f"  Tuned model: {tuned_results['accuracy']*100:.1f}% accuracy, "
+          f"macro-F1 {tuned_results['macro_f1']:.3f} (seed={RANDOM_SEED}).")
+    print(f"  Tuning changed macro-F1 by {improvement:+.4f}; best params: {best_params}.")
+    print(f"  Strongest on majority classes (e.g. '{top_class}'), weakest on the rare "
+          f"ones (Sexual Assault) — see confusion_matrix_tuned.png.")
+    print(f"  As a linear model, it serves as the performance floor for the comparison.")
 
     if diagnostics is not None:
         n_dropped = diagnostics["n_predictors_initial"] - diagnostics["n_predictors_final"]
         vif_problematic = (diagnostics["vif_initial"]["flag"] == "PROBLEMATIC").sum()
         infl = diagnostics["influence_info"]
-        print(f"""
-  6. Statistical significance & model specification (statsmodels MNLogit,
-     reference category = '{diagnostics['reference_class']}'):
-
-     - Started with {diagnostics['n_predictors_initial']} candidate predictors
-       (after one-hot encoding); iterative backward elimination on p-values
-       removed {n_dropped} of them as not significant for distinguishing ANY
-       class from the reference. See significance_iteration_log.csv for the
-       exact order and reasons (p-value alone, or p-value + high VIF).
-
-     - Multicollinearity: {vif_problematic} predictor(s) showed VIF > 10 in
-       the initial check (vif_table.csv). {"These overlapped with the variables removed during backward elimination, consistent with multicollinearity inflating their apparent insignificance." if vif_problematic > 0 else "No predictors showed problematic multicollinearity — the remaining coefficients' standard errors and p-values can be interpreted with reasonable confidence."}
-
-     - Influence diagnostics: {infl['n_flagged']:,} of {infl['n_obs']:,} observations
-       ({infl['n_flagged']/infl['n_obs']*100:.2f}%) were flagged as high-influence by
-       Cook's distance (using the auxiliary one-vs-reference approach
-       described in influence_diagnostics.png, since true multinomial
-       Cook's distance isn't a standard, agreed-upon statistic). These rows
-       are saved in outlier_flagged_rows.csv for inspection — worth checking
-       whether they share a common data-quality issue (e.g. unusual premise
-       codes, edge-case ages) before deciding whether to exclude them.
-
-     - Linearity-in-the-logit: see linearity_check.png. Any predictor whose
-       empirical log-odds curve deviates noticeably from a straight line
-       across deciles is a candidate for a transformed term (e.g. a
-       quadratic age term) in a future iteration of this model.
-
-     - Practical takeaway: the FINAL explanatory model (mnlogit_final_summary.txt)
-       keeps only variables that are individually justified by significance
-       testing, not just ones that happened to help cross-validated accuracy.
-       This is a genuinely different goal from steps 5-7 above (the sklearn
-       tuned model is optimized to predict well; this statsmodels model is
-       optimized to explain well) — it's normal and expected for the two to
-       retain a similar, but not necessarily identical, set of variables.
-        """)
+        print(f"\n  Diagnostics (reference '{diagnostics['reference_class']}'): "
+              f"backward elimination dropped {n_dropped} of "
+              f"{diagnostics['n_predictors_initial']} predictors; "
+              f"{vif_problematic} predictor(s) with VIF > 10.")
+        if infl is not None:
+            print(f"  Influence: {infl['n_flagged']:,} of {infl['n_obs']:,} rows flagged "
+                  f"by Cook's distance ({infl['n_flagged']/infl['n_obs']*100:.2f}%).")
+        print(f"  See mnlogit_final_summary.txt, vif_table.csv, "
+              f"significance_iteration_log.csv, linearity_check.png.")
     else:
-        print(f"""
-  6. Statistical significance & model diagnostics were SKIPPED because
-     statsmodels is not installed in this environment. Run
-     `pip install statsmodels` and re-run this script to get p-values,
-     VIF, iterative variable selection, and influence diagnostics.
-        """)
+        print(f"\n  Diagnostics skipped (statsmodels not installed).")
 
     print(f"\n{'#'*70}")
     print(f"  DONE. All outputs saved in: {OUT_DIR}")

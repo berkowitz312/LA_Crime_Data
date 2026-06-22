@@ -1,42 +1,10 @@
 """
-feature_engineering.py
-======================
-LA Crime Data – Feature Engineering (stage 3 of the pipeline)
+Derives the model-ready feature set from the cleaned data. Reads
+data/processed/la_crime_cleaned.csv and writes data/processed/la_crime_features.csv.
 
-Reads the cleaned dataset produced by data_cleaning.py:
-    data/processed/la_crime_cleaned.csv   (path from src/config.py)
-
-Derives model-ready features for the multi-class classification task
-(target = `category`: Violent / Property / Sexual Assault / Vehicle / Other)
-and writes them to:
-    data/processed/la_crime_features.csv
-
-Which features are derived is controlled per-feature by FEATURE_CATALOGUE in
-src/config.py — flip any feature to False there to drop just that column.
-
-No file paths or flags need to be passed in. Just make sure you've run
-data_cleaning.py first, then run:
-
-    python src/feature_engineering.py
-
-Design notes
-------------
-* NO encoding here (team decision): categorical columns are kept as clean,
-  human-readable labels. Each downstream model applies whatever encoding it
-  needs (e.g. one-hot + scaling for Logistic Regression / KNN, ordinal for
-  tree models). This keeps the features CSV interpretable.
-
-* Target leakage is removed: `category` was derived in data_cleaning.py from
-  `crm_cd` / `crm_cd_desc` (and `crm_cd_1` matches `crm_cd` ~99.8% of the time).
-  Those columns are dropped from the feature set so models can't trivially
-  recover the label.
-
-* MO-CODE CAVEAT: The project requirements ask for MO codes to be used as a feature, but the
-  per-incident `Mocodes` column does NOT survive cleaning — data_cleaning.py
-  drops it after using it transiently. This script flags that loudly (see the
-  warning printed at the end) and does NOT silently re-read the raw CSV. Adding
-  an MO-code feature needs a team decision: re-introduce `Mocodes` in
-  data_cleaning.py first.
+Which columns are derived is controlled by FEATURE_CATALOGUE in config.py.
+Categoricals stay as text labels (each model encodes them itself). Crime-code
+columns are dropped to avoid leaking the target.
 """
 
 import sys
@@ -47,35 +15,28 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-# All paths / settings (incl. the feature catalogue toggles) come from src/config.py.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import config as cfg
 
 # =============================================================================
-# 0.  PATHS & SETTINGS  (resolved from the central config — independent of CWD)
+# 0.  PATHS & SETTINGS
 # =============================================================================
 
-OUT_DIR = cfg.ensure_dir(cfg.PROCESSED_DIR)   # data/processed/
+OUT_DIR  = cfg.ensure_dir(cfg.PROCESSED_DIR)
+FEATURES = cfg.FEATURE_CATALOGUE   # per-feature on/off switches
 
-# Enable/disable each derived feature individually via config.FEATURE_CATALOGUE.
-FEATURES = cfg.FEATURE_CATALOGUE
-
-# Columns dropped from the feature set.
-#   - Identifiers carry no signal.
-#   - crm_cd* / crm_cd_desc are the SOURCE of the `category` target -> leakage.
-#   - raw text / superseded codes are replaced by derived flags or labels below.
+# Columns removed before saving: identifiers, the crime-code source of the
+# target (leakage), and raw columns replaced by derived ones.
 LEAKAGE_COLS    = ["crm_cd", "crm_cd_1", "crm_cd_2", "crm_cd_3", "crm_cd_4", "crm_cd_desc"]
 IDENTIFIER_COLS = ["dr_no"]
 DROP_RAW_COLS   = ["date_rptd", "location", "cross_street",
                    "premis_cd", "weapon_used_cd", "area", "rpt_dist_no"]
 
-# How many of the most frequent premises to keep as-is before bucketing the
-# long tail into "Other" (premis_desc has ~306 distinct values).
 PREMIS_TOP_N = cfg.PREMIS_TOP_N
 
 
 def find_cleaned_file() -> Path:
-    """Return the cleaned dataset path from config, erroring if it's not there yet."""
+    """Return the cleaned dataset path, erroring if data_cleaning.py hasn't run."""
     path = cfg.CLEANED_DATA_PATH
     if not path.exists():
         print(f"\n  [ERROR] Could not find the cleaned dataset.")
@@ -131,10 +92,8 @@ def _time_of_day(hour) -> str:
 
 
 def add_time_features(df: pd.DataFrame) -> pd.DataFrame:
-    """hour (0-23) and time_of_day bucket from the HHMM integer time_occ.
-    Each column is added only when its FEATURE_CATALOGUE flag is enabled.
-    Note: time_of_day derives from hour — if time_of_day is enabled but hour is
-    disabled, hour is computed locally as a temp without being written out."""
+    """hour (0-23) and time_of_day bucket from time_occ. time_of_day needs hour,
+    so hour is computed locally even when only time_of_day is enabled."""
     if "time_occ" not in df.columns:
         print("  [WARN] No 'time_occ' column — skipping time-of-day features.")
         return df
@@ -155,12 +114,8 @@ def add_time_features(df: pd.DataFrame) -> pd.DataFrame:
 # =============================================================================
 
 def add_age_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Victim age in the cleaned data uses 0 as an 'unknown' placeholder (~25% of
-    rows) alongside a handful of true nulls. We keep the raw value, add an
-    `age_known` flag so models can use the missingness signal, and add an
-    `age_group` bucket. No value is imputed.
-    """
+    """age_known flag (0 is the 'unknown' placeholder) and age_group bins. The raw
+    vict_age column is kept and nothing is imputed."""
     if "vict_age" not in df.columns:
         print("  [WARN] No 'vict_age' column — skipping age features.")
         return df
@@ -213,11 +168,8 @@ def add_flag_features(df: pd.DataFrame) -> pd.DataFrame:
 # =============================================================================
 
 def add_premises_feature(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    premis_desc has ~306 distinct values. Keep the PREMIS_TOP_N most frequent as
-    clean labels and collapse the long tail (plus nulls) into 'Other' so the
-    column is usable by downstream encoders without exploding dimensionality.
-    """
+    """Group premis_desc (~306 values) into the PREMIS_TOP_N most common labels,
+    with everything else (and nulls) as 'Other'."""
     if not FEATURES.get("premis_group"):
         return df
     if "premis_desc" not in df.columns:
@@ -237,16 +189,13 @@ def add_premises_feature(df: pd.DataFrame) -> pd.DataFrame:
 # =============================================================================
 
 def select_feature_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Build the final feature frame: derived columns + clean categorical labels +
-    the `category` target. Drops identifiers, leakage columns, and raw columns
-    that have been replaced by derived features.
-    """
+    """Drop identifiers, leakage, and replaced raw columns; keep the derived
+    features, categorical labels, and the target."""
     drop_cols = LEAKAGE_COLS + IDENTIFIER_COLS + DROP_RAW_COLS + ["premis_desc"]
     present_drop = [c for c in drop_cols if c in df.columns]
     out = df.drop(columns=present_drop, errors="ignore")
 
-    # Sanity guard: never let a leakage column slip into the output.
+    # Guard against any leakage column slipping through.
     leaked = [c for c in LEAKAGE_COLS if c in out.columns]
     if leaked:
         print(f"  [ERROR] Leakage columns still present: {leaked} — dropping forcibly.")
@@ -306,25 +255,14 @@ def main():
         print(features["category"].value_counts().to_string())
     print(f"\n  Feature set saved -> {out_csv}")
 
-    # -------------------------------------------------------------------------
-    # MO-CODE FLAG  (project requirements can't be met from cleaned data)
-    # -------------------------------------------------------------------------
+    # Warn if no Mocodes column made it through cleaning (no MO-code feature possible).
     mo_present = any("mocode" in c.lower() for c in df.columns)
     if not mo_present:
-        print(f"\n{'='*60}")
-        print("  [ACTION NEEDED] MO codes are NOT available as a feature")
-        print(f"{'='*60}")
-        print("  Project requirements ask for MO codes to be used during feature engineering,")
-        print("  but the per-incident 'Mocodes' column does not survive cleaning —")
-        print("  data_cleaning.py drops it after using it transiently for category")
-        print("  assignment. This script does NOT silently re-read the raw CSV.")
-        print("  TEAM DECISION required: re-introduce 'Mocodes' in data_cleaning.py")
-        print("  (keep it in la_crime_cleaned.csv) so an MO-code feature can be built.")
+        print(f"\n  [NOTE] No 'Mocodes' column in the cleaned data, so no MO-code "
+              f"feature is built. Re-introduce it in data_cleaning.py to enable one.")
 
     print(f"\n{'='*60}")
-    print("  FEATURE ENGINEERING COMPLETE")
-    print("  Note: categorical columns are intentionally left UN-encoded —")
-    print("  encoding is handled per-model in the modeling stage.")
+    print("  FEATURE ENGINEERING COMPLETE  (categoricals left unencoded; each model encodes them)")
     print(f"{'='*60}\n")
 
 
