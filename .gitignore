@@ -1,8 +1,21 @@
+# ── Python ───────────────────────────────────────────────
 .venv/
 __pycache__/
+*.pyc
+*.pyo
+
+# ── OS artefacts ─────────────────────────────────────────
 .DS_Store
-Crime_Data_from_2020_to_Present.csv
-MO_CODES.csv
-cleaned_data/
-data/processed/ # ignore the data folder
+Thumbs.db
+
+# ── IDE ──────────────────────────────────────────────────
+.vscode/
+
+# ── Large raw data files ─────────────────────────────────
+data/Crime_Data_from_2020_to_Present.csv
+data/MO_CODES.csv
+data/City_Boundary.geojson
+data/City_Boundary_of_Los_Angeles_-_Feature_Layer_(hosted).csv
+
+# ── Generated / processed data (re-created by pipeline) ──
 data/processed/

@@ -46,11 +46,10 @@ WARM    = "#F4A261"
 DARK_BG = "#1D3557"
 
 CATEGORY_COLORS = {
-    "Violent":        "#E63946",
-    "Property":       "#457B9D",
-    "Sexual Assault": "#9D4EDD",
-    "Vehicle":        "#F4A261",
-    "Other":          "#6C757D",
+    "Violent":  "#E63946",
+    "Property": "#457B9D",
+    "Vehicle":  "#F4A261",
+    "Other":    "#6C757D",
 }
 
 
@@ -210,7 +209,7 @@ def eda_crime_types(df: pd.DataFrame):
         colors = [CATEGORY_COLORS.get(c, "#999999") for c in cat.index]
         axes[1].pie(cat.values, labels=cat.index, autopct="%1.1f%%",
                     colors=colors, wedgeprops={"edgecolor": "white"}, startangle=140)
-        axes[1].set_title("Simplified Crime Category\n(Violent / Property / Sexual Assault / Vehicle / Other)")
+        axes[1].set_title("Simplified Crime Category\n(Violent / Property / Vehicle / Other)")
 
     plt.tight_layout()
     _save(fig, "04_crime_types")
@@ -347,14 +346,192 @@ def eda_correlation(df: pd.DataFrame):
 
 
 # =============================================================================
-# 3.  INTERACTIVE FILTERABLE HEATMAP  (category + year filters)
+# 3.  SCATTER & OUTLIER PLOTS  (feature-category relationships)
+# =============================================================================
+
+def eda_scatter_relationships(df: pd.DataFrame):
+    """Four panels showing how key features separate the target categories —
+    directly useful for assessing classification model feature value."""
+    print("\n  [EDA] 11 -- Scatter plots: feature-category relationships")
+
+    df2 = df.copy()
+    # Derive hour / day_of_week locally so this works on the cleaned CSV directly
+    if "hour" not in df2.columns and "time_occ" in df2.columns:
+        df2["hour"] = (pd.to_numeric(df2["time_occ"], errors="coerce") // 100)
+    if "day_of_week" not in df2.columns and "date_occ" in df2.columns:
+        df2["day_of_week"] = pd.to_datetime(df2["date_occ"], errors="coerce").dt.dayofweek
+
+    fig, axes = plt.subplots(2, 2, figsize=(20, 16))
+    fig.suptitle("Feature Relationships by Crime Category\n(for classification model insight)",
+                 fontsize=15, fontweight="bold", color=DARK_BG)
+
+    # ── A: Geographic scatter ────────────────────────────────────────────────
+    if {"lat", "lon", "category"}.issubset(df2.columns):
+        geo = df2.dropna(subset=["lat", "lon", "category"])
+        sample = geo.sample(min(40_000, len(geo)), random_state=42)
+        for cat, grp in sample.groupby("category"):
+            axes[0, 0].scatter(grp["lon"], grp["lat"], s=1, alpha=0.25,
+                               color=CATEGORY_COLORS.get(cat, "#999999"), label=cat)
+        axes[0, 0].set_title("A — Geographic Clusters by Category\n(sampled 40 k points)")
+        axes[0, 0].set_xlabel("Longitude")
+        axes[0, 0].set_ylabel("Latitude")
+        axes[0, 0].legend(markerscale=6, title="Category", fontsize=8, loc="upper left")
+
+    # ── B: Victim age vs Hour of day ─────────────────────────────────────────
+    if {"vict_age", "hour", "category"}.issubset(df2.columns):
+        tmp = df2.dropna(subset=["vict_age", "hour", "category"]).copy()
+        tmp["vict_age"] = pd.to_numeric(tmp["vict_age"], errors="coerce")
+        tmp = tmp[tmp["vict_age"] > 0]
+        sample = tmp.sample(min(20_000, len(tmp)), random_state=42)
+        rng = np.random.default_rng(42)
+        for cat, grp in sample.groupby("category"):
+            jitter = rng.uniform(-0.4, 0.4, len(grp))
+            axes[0, 1].scatter(grp["hour"] + jitter, grp["vict_age"],
+                               s=2, alpha=0.2,
+                               color=CATEGORY_COLORS.get(cat, "#999999"), label=cat)
+        axes[0, 1].set_title("B — Victim Age vs. Hour of Day by Category\n(jittered, sampled 20 k)")
+        axes[0, 1].set_xlabel("Hour of Day (0–23)")
+        axes[0, 1].set_ylabel("Victim Age")
+        axes[0, 1].set_xticks(range(0, 24, 3))
+        axes[0, 1].legend(markerscale=4, title="Category", fontsize=8)
+
+    # ── C: Category composition per LAPD area (% heatmap) ───────────────────
+    if {"area_name", "category"}.issubset(df2.columns):
+        pivot = (df2.groupby(["area_name", "category"]).size()
+                   .unstack(fill_value=0))
+        pivot_pct = pivot.div(pivot.sum(axis=1), axis=0).mul(100).round(1)
+        sns.heatmap(pivot_pct, ax=axes[1, 0], cmap="YlOrRd",
+                    annot=True, fmt=".0f", linewidths=0.4,
+                    annot_kws={"size": 7},
+                    cbar_kws={"label": "% of area's crimes"})
+        axes[1, 0].set_title("C — Category Composition per LAPD Area (%)\n"
+                             "(each row sums to 100 %)")
+        axes[1, 0].set_xlabel("Crime Category")
+        axes[1, 0].set_ylabel("LAPD Area")
+        axes[1, 0].tick_params(axis="x", rotation=25, labelsize=8)
+        axes[1, 0].tick_params(axis="y", labelsize=7)
+
+    # ── D: Mean hour of crime by category × day of week ─────────────────────
+    if {"hour", "day_of_week", "category"}.issubset(df2.columns):
+        tmp = df2.dropna(subset=["hour", "day_of_week", "category"])
+        pivot_hr = (tmp.groupby(["day_of_week", "category"])["hour"]
+                       .mean().unstack())
+        pivot_hr.index = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][:len(pivot_hr)]
+        sns.heatmap(pivot_hr, ax=axes[1, 1], cmap="coolwarm", center=12,
+                    annot=True, fmt=".1f", linewidths=0.5,
+                    annot_kws={"size": 9},
+                    cbar_kws={"label": "Mean Hour of Day"})
+        axes[1, 1].set_title("D — Mean Occurrence Hour: Day of Week × Category\n"
+                             "(cooler = earlier in day; warmer = later)")
+        axes[1, 1].set_xlabel("Crime Category")
+        axes[1, 1].set_ylabel("Day of Week")
+        axes[1, 1].tick_params(axis="x", rotation=25)
+
+    plt.tight_layout()
+    _save(fig, "11_scatter_relationships")
+
+
+def eda_outlier_analysis(df: pd.DataFrame):
+    """Four panels for identifying outliers in key numeric features, broken down
+    by crime category where relevant."""
+    print("\n  [EDA] 12 -- Outlier analysis")
+
+    df2 = df.copy()
+    if "hour" not in df2.columns and "time_occ" in df2.columns:
+        df2["hour"] = (pd.to_numeric(df2["time_occ"], errors="coerce") // 100)
+
+    fig, axes = plt.subplots(2, 2, figsize=(20, 14))
+    fig.suptitle("Outlier Analysis — Key Numeric Features",
+                 fontsize=15, fontweight="bold", color=DARK_BG)
+
+    # ── A: Boxplot victim age by category (flier dots visible) ───────────────
+    if {"vict_age", "category"}.issubset(df2.columns):
+        tmp = df2.copy()
+        tmp["vict_age"] = pd.to_numeric(tmp["vict_age"], errors="coerce")
+        tmp = tmp[tmp["vict_age"] > 0].dropna(subset=["category"])
+        sns.boxplot(data=tmp, x="category", y="vict_age", ax=axes[0, 0],
+                    palette=CATEGORY_COLORS,
+                    flierprops={"marker": ".", "markersize": 2,
+                                "alpha": 0.3, "markerfacecolor": ACCENT})
+        axes[0, 0].set_title("A — Victim Age by Category\n(IQR box; dots = outlier observations)")
+        axes[0, 0].set_xlabel("Category")
+        axes[0, 0].set_ylabel("Age")
+        axes[0, 0].tick_params(axis="x", rotation=20)
+
+    # ── B: Violin of hour by category ────────────────────────────────────────
+    if {"hour", "category"}.issubset(df2.columns):
+        tmp = df2.dropna(subset=["hour", "category"])
+        sns.violinplot(data=tmp, x="category", y="hour", ax=axes[0, 1],
+                       palette=CATEGORY_COLORS, inner="box", cut=0)
+        axes[0, 1].set_title("B — Hour of Occurrence by Category\n(violin shape + IQR box inside)")
+        axes[0, 1].set_xlabel("Category")
+        axes[0, 1].set_ylabel("Hour of Day")
+        axes[0, 1].set_yticks(range(0, 24, 3))
+        axes[0, 1].tick_params(axis="x", rotation=20)
+
+    # ── C: IQR outlier rate per numeric feature ───────────────────────────────
+    drop_ids = {"dr_no", "rpt_dist_no", "crm_cd", "premis_cd",
+                "weapon_used_cd", "crm_cd_1", "crm_cd_2", "crm_cd_3", "crm_cd_4"}
+    num_cols = [c for c in df2.select_dtypes(include=[np.number]).columns
+                if c not in drop_ids]
+    outlier_pct = {}
+    for col in num_cols:
+        s = df2[col].dropna()
+        if len(s) < 10:
+            continue
+        q1, q3 = s.quantile(0.25), s.quantile(0.75)
+        iqr = q3 - q1
+        if iqr == 0:
+            continue
+        n_out = ((s < q1 - 1.5 * iqr) | (s > q3 + 1.5 * iqr)).sum()
+        outlier_pct[col] = round(n_out / len(s) * 100, 2)
+
+    if outlier_pct:
+        oc = pd.Series(outlier_pct).sort_values(ascending=False)
+        axes[1, 0].barh(oc.index[::-1], oc.values[::-1], color=WARM, edgecolor="white")
+        axes[1, 0].set_title("C — IQR Outlier Rate per Numeric Feature\n"
+                             "(% of non-null values outside 1.5 × IQR)")
+        axes[1, 0].set_xlabel("Outlier %")
+        for i, v in enumerate(oc.values[::-1]):
+            axes[1, 0].text(v + 0.05, i, f"{v:.1f}%", va="center", fontsize=8)
+
+    # ── D: Victim age histogram with ±3σ bounds ──────────────────────────────
+    if "vict_age" in df2.columns:
+        ages = pd.to_numeric(df2["vict_age"], errors="coerce").dropna()
+        ages = ages[ages > 0]
+        mean_a, std_a = ages.mean(), ages.std()
+        lo, hi = mean_a - 3 * std_a, mean_a + 3 * std_a
+        n_out = int(((ages < lo) | (ages > hi)).sum())
+
+        axes[1, 1].hist(ages, bins=60, color=COOL, edgecolor="white", alpha=0.8)
+        if lo > ages.min():
+            axes[1, 1].axvspan(ages.min(), lo, alpha=0.15, color=ACCENT)
+        axes[1, 1].axvspan(hi, ages.max(), alpha=0.15, color=ACCENT)
+        axes[1, 1].axvline(lo, color=ACCENT, linestyle="--", linewidth=1.8,
+                           label=f"−3σ  ({lo:.0f} yrs)")
+        axes[1, 1].axvline(hi, color=ACCENT, linestyle="--", linewidth=1.8,
+                           label=f"+3σ  ({hi:.0f} yrs)")
+        axes[1, 1].axvline(mean_a, color=DARK_BG, linestyle="-", linewidth=1.5,
+                           label=f"Mean  ({mean_a:.1f} yrs)")
+        axes[1, 1].set_title(f"D — Victim Age Distribution with ±3σ Outlier Bounds\n"
+                             f"({n_out:,} outliers — {n_out / len(ages) * 100:.1f}% of records)")
+        axes[1, 1].set_xlabel("Age")
+        axes[1, 1].set_ylabel("Count")
+        axes[1, 1].legend(fontsize=9)
+
+    plt.tight_layout()
+    _save(fig, "12_outlier_analysis")
+
+
+# =============================================================================
+# 4.  INTERACTIVE FILTERABLE HEATMAP  (category + year filters)
 # =============================================================================
 
 def build_interactive_heatmap(df: pd.DataFrame, max_points: int = 300_000):
     """Write a self-contained Leaflet heat-map (HTML) with category and year
     filters. Caps the points at max_points, sampling proportionally across
     category x year so no group disappears. Uses public CDN tiles, no API key."""
-    print("\n  [EDA] 11 -- Interactive filterable heat-map")
+    print("\n  [EDA] 13 -- Interactive filterable heat-map")
 
     needed = ["lat", "lon"]
     if not all(c in df.columns for c in needed):
@@ -405,6 +582,15 @@ def build_interactive_heatmap(df: pd.DataFrame, max_points: int = 300_000):
     categories_json = json.dumps(categories)
     years_json = json.dumps(years)
 
+    boundary_json = "null"
+    boundary_path = cfg.DATA_DIR / "City_Boundary.geojson"
+    if boundary_path.exists():
+        with open(boundary_path, "r", encoding="utf-8") as _f:
+            boundary_json = _f.read()
+        print(f"  City boundary loaded from: {boundary_path.name}")
+    else:
+        print(f"  [WARN] City_Boundary.geojson not found in data/ — boundary skipped")
+
     html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -453,7 +639,11 @@ def build_interactive_heatmap(df: pd.DataFrame, max_points: int = 300_000):
 </div>
 
 <div id="map"></div>
-<div class="legend">Heat intensity = incident density<br/>Use dropdowns to filter</div>
+<div class="legend">
+  Heat intensity = incident density<br/>
+  Use dropdowns to filter<br/>
+  <span style="color:#FFE566;font-weight:bold;">— — —</span> City of Los Angeles boundary
+</div>
 
 <script>
   const pointsByGroup = {points_json};
@@ -512,6 +702,32 @@ def build_interactive_heatmap(df: pd.DataFrame, max_points: int = 300_000):
   yearSelect.addEventListener('change', updateMap);
 
   updateMap();
+
+  // City of Los Angeles boundary — embedded from City_Boundary.geojson
+  (function() {{
+    var boundaryData = {boundary_json};
+    if (!boundaryData) return;
+    // Glow layer — thick, low opacity
+    L.geoJSON(boundaryData, {{
+      style: {{
+        color: '#FFFFFF',
+        weight: 10,
+        opacity: 0.18,
+        fillOpacity: 0.04,
+        fillColor: '#FFFFFF'
+      }}
+    }}).addTo(map);
+    // Sharp border on top
+    L.geoJSON(boundaryData, {{
+      style: {{
+        color: '#FFE566',
+        weight: 3,
+        opacity: 1,
+        fillOpacity: 0,
+        dashArray: '12 5'
+      }}
+    }}).addTo(map);
+  }})();
 </script>
 
 </body>
@@ -558,6 +774,8 @@ def main():
     eda_premises(df)
     eda_category_by_year(df)
     eda_correlation(df)
+    eda_scatter_relationships(df)
+    eda_outlier_analysis(df)
     build_interactive_heatmap(df)
 
     print(f"\n{'='*60}")

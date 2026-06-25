@@ -89,7 +89,7 @@ def mo_codes_to_category_hint(mo_field: str, code_to_cat: dict) -> str:
 # 2.  CRIME CODE -> SIMPLIFIED CATEGORY MAP
 # =============================================================================
 # Maps the dataset's ~140 distinct Crm Cd values down to 5 interpretable
-# buckets: Violent, Property, Sexual Assault, Vehicle, Other.
+# buckets: Violent, Property, Vehicle, Other.
 # Codes not listed below default to "Other".
 
 CRIME_CATEGORY_MAP = {
@@ -102,15 +102,15 @@ CRIME_CATEGORY_MAP = {
     231:"Violent", 235:"Violent", 236:"Violent",
     624:"Violent",                                       # battery - simple assault
     761:"Violent", 928:"Violent", 922:"Violent",
-    # ---- Sexual Assault ----
-    121:"Sexual Assault", 122:"Sexual Assault",
-    805:"Sexual Assault", 806:"Sexual Assault",
-    807:"Sexual Assault", 810:"Sexual Assault",
-    811:"Sexual Assault", 812:"Sexual Assault",
-    813:"Sexual Assault", 814:"Sexual Assault",
-    815:"Sexual Assault", 820:"Sexual Assault",
-    821:"Sexual Assault", 822:"Sexual Assault",
-    860:"Sexual Assault", 921:"Sexual Assault",
+    # ---- Sexual Assault (mapped to Other) ----
+    121:"Other", 122:"Other",
+    805:"Other", 806:"Other",
+    807:"Other", 810:"Other",
+    811:"Other", 812:"Other",
+    813:"Other", 814:"Other",
+    815:"Other", 820:"Other",
+    821:"Other", 822:"Other",
+    860:"Other", 921:"Other",
     # ---- Vehicle ----
     330:"Vehicle",                                        # burglary from vehicle
     331:"Vehicle",
@@ -150,7 +150,7 @@ CRIME_CATEGORY_MAP = {
 def assign_crime_category(crm_cd: pd.Series,
                           crm_cd_desc: pd.Series = None,
                           mo_sex_hint: pd.Series = None) -> pd.Series:
-    """Map crime codes to one of 5 categories. For codes not in CRIME_CATEGORY_MAP:
+    """Map crime codes to one of 4 categories. For codes not in CRIME_CATEGORY_MAP:
     try keyword matching on the description, then the Sex Related MO hint, else "Other"."""
     mapped = crm_cd.map(CRIME_CATEGORY_MAP)
 
@@ -161,7 +161,7 @@ def assign_crime_category(crm_cd: pd.Series,
 
             def keyword_fallback(desc: str) -> str:
                 if any(k in desc for k in ["RAPE", "SEX", "SODOMY", "LEWD", "ORAL COP", "PENETRATION"]):
-                    return "Sexual Assault"
+                    return "Other"
                 if any(k in desc for k in ["VEHICLE", "BIKE", "BOAT", " GTA", "DRIVING"]):
                     return "Vehicle"
                 if any(k in desc for k in ["ASSAULT", "HOMICIDE", "MANSLAUGHTER", "BATTERY",
@@ -183,7 +183,7 @@ def assign_crime_category(crm_cd: pd.Series,
                 hint_vals = mo_sex_hint.loc[hint_idx]
                 fallback_result.loc[hint_idx] = hint_vals.where(hint_vals == "Sex Related", "")
                 fallback_result.loc[hint_idx] = fallback_result.loc[hint_idx].replace(
-                    {"Sex Related": "Sexual Assault"}
+                    {"Sex Related": "Other"}
                 )
 
             fallback_result = fallback_result.replace({"": np.nan})
@@ -328,7 +328,7 @@ def categorize_data(df: pd.DataFrame, mo_code_to_cat: dict) -> pd.DataFrame:
 
     df["category"] = assign_crime_category(df["crm_cd"], desc_col, mo_hint)
 
-    print("  Crime 'category' assigned (Violent / Property / Sexual Assault / Vehicle / Other):")
+    print("  Crime 'category' assigned (Violent / Property / Vehicle / Other):")
     print(df["category"].value_counts().to_string())
     print(f"\n  Total columns after categorization : {df.shape[1]}")
     return df
