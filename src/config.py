@@ -45,6 +45,7 @@ MODEL_DIRS = {
     "random_forest":       OUTPUTS_DIR / "random_forest_output",
     "xgboost":             OUTPUTS_DIR / "xgboost_output",
     "neural_network":      OUTPUTS_DIR / "neural_network_output",
+    "naive_bayes":         OUTPUTS_DIR / "naive_bayes_output",
 }
 
 
@@ -72,7 +73,7 @@ def find_mo_codes() -> Path | None:
 RANDOM_SEED = 42
 
 # Target column (created in data_cleaning.py):
-# Violent / Property / Vehicle / Other.
+# Violent / Property / Sexual Assault / Vehicle / Other.
 TARGET_COLUMN = "category"
 
 TEST_SIZE = 0.20    # 80/20 train/test
@@ -235,6 +236,20 @@ MODEL_PARAMS = {
         "tuning": {
             "learning_rate": [1e-3, 5e-4],
             "hidden_layers": [[128, 64], [256, 128]],
+        },
+    },
+
+    "naive_bayes": {   # GaussianNB (models/model_naive_bayes.py)
+        # GaussianNB has no real fit hyperparameters; defaults are fine for the
+        # baseline (var_smoothing=1e-9).
+        "baseline": {},
+        # Its one tunable is var_smoothing (variance floor added for numerical
+        # stability). Sweep it across several orders of magnitude; ~11 x CV_FOLDS
+        # fits, trivially fast. Explicit list so config.py needs no numpy import.
+        "param_grid": {
+            "classifier__var_smoothing": [
+                1e-11, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1,
+            ],
         },
     },
 }

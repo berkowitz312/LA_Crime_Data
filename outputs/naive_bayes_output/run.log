@@ -1,0 +1,128 @@
+
+######################################################################
+  NAIVE BAYES — LA Crime Category Prediction
+  RANDOM SEED USED THROUGHOUT: 42
+######################################################################
+
+======================================================================
+  STEP 1 – LOADING ENGINEERED FEATURES DATASET
+======================================================================
+  File  : /Users/kjellvandebergh/dev/data-science/data/processed/la_crime_features.csv
+  Shape : (918443, 26)
+
+======================================================================
+  STEP 2 – FEATURE SELECTION
+======================================================================
+  Selected feature groups: TIME, LOCATION, VICTIM DEMOGRAPHICS, PREMISE
+  Excluded on purpose: weapon_desc, status_desc (would leak the target)
+  Final feature set (10 features + target):
+    ['lat', 'lon', 'vict_age', 'hour', 'month', 'day_of_week', 'area_name', 'vict_sex', 'vict_descent', 'premis_group']
+  -> saved: /Users/kjellvandebergh/dev/data-science/outputs/naive_bayes_output/class_distribution.png
+
+  Target classes (5): ['Other', 'Property', 'Sexual Assault', 'Vehicle', 'Violent']
+
+======================================================================
+  STEP 3 – PRE-PROCESSING  (scale numerics + DENSE one-hot for GaussianNB)
+======================================================================
+  Numeric (median-imputed + scaled) : ['lat', 'lon', 'vict_age', 'hour', 'month', 'day_of_week']
+  Categorical (dense one-hot)       : ['area_name', 'vict_sex', 'vict_descent', 'premis_group']
+
+======================================================================
+  STEP 4 – TRAIN / TEST SPLIT
+======================================================================
+  Reusing SHARED split        : /Users/kjellvandebergh/dev/data-science/data/processed/train_test_split_indices.csv
+  (identical held-out rows as every other model in the comparison)
+  Split        : 80% train / 20% test
+  Random seed  : 42
+  Stratified by: 'category'
+  Train shape  : (734754, 10)
+  Test shape   : (183689, 10)
+
+======================================================================
+  STEP 5 – BASELINE MODEL
+======================================================================
+
+  -- BASELINE Results --
+  Accuracy        : 0.1249
+  Macro Precision : 0.4289
+  Macro Recall    : 0.2580
+  Macro F1        : 0.1253
+  Macro ROC-AUC   : 0.7283
+  Log Loss        : 27.3971
+
+  Per-class report:
+                precision    recall  f1-score   support
+
+         Other       0.04      0.96      0.07      6323
+      Property       0.82      0.14      0.24     69229
+Sexual Assault       0.08      0.05      0.06      5835
+       Vehicle       0.70      0.10      0.18     47726
+       Violent       0.50      0.04      0.07     54576
+
+      accuracy                           0.12    183689
+     macro avg       0.43      0.26      0.13    183689
+  weighted avg       0.64      0.12      0.16    183689
+
+  -> saved: /Users/kjellvandebergh/dev/data-science/outputs/naive_bayes_output/confusion_matrix_baseline.png
+
+======================================================================
+  STEP 6 – HYPERPARAMETER TUNING (GridSearchCV)
+======================================================================
+  Search space : {'classifier__var_smoothing': [1e-11, 1e-10, 1e-09, 1e-08, 1e-07, 1e-06, 1e-05, 0.0001, 0.001, 0.01, 0.1]}
+  CV           : StratifiedKFold(3), scoring=f1_macro
+Fitting 3 folds for each of 11 candidates, totalling 33 fits
+
+  Best parameters found : {'classifier__var_smoothing': 0.01}
+  Best CV macro-F1      : 0.4158
+  -> saved: /Users/kjellvandebergh/dev/data-science/outputs/naive_bayes_output/grid_search_results.csv
+
+  -- TUNED Results --
+  Accuracy        : 0.5374
+  Macro Precision : 0.4354
+  Macro Recall    : 0.4476
+  Macro F1        : 0.4157
+  Macro ROC-AUC   : 0.7805
+  Log Loss        : 2.9937
+
+  Per-class report:
+                precision    recall  f1-score   support
+
+         Other       0.08      0.31      0.12      6323
+      Property       0.75      0.44      0.56     69229
+Sexual Assault       0.10      0.20      0.13      5835
+       Vehicle       0.73      0.75      0.74     47726
+       Violent       0.52      0.54      0.53     54576
+
+      accuracy                           0.54    183689
+     macro avg       0.44      0.45      0.42    183689
+  weighted avg       0.63      0.54      0.57    183689
+
+  -> saved: /Users/kjellvandebergh/dev/data-science/outputs/naive_bayes_output/confusion_matrix_tuned.png
+  -> saved: /Users/kjellvandebergh/dev/data-science/outputs/naive_bayes_output/roc_curves_tuned.png
+  -> saved: /Users/kjellvandebergh/dev/data-science/outputs/naive_bayes_output/precision_recall_f1_by_class.png
+  -> saved: /Users/kjellvandebergh/dev/data-science/outputs/naive_bayes_output/baseline_vs_tuned_metrics.png
+
+  [PLOT] Permutation importance (model-agnostic; macro-F1 drop when shuffled)
+      (using a random 50,000-row sample of the 183,689-row test set)
+  -> saved: /Users/kjellvandebergh/dev/data-science/outputs/naive_bayes_output/permutation_importance.csv
+  -> saved: /Users/kjellvandebergh/dev/data-science/outputs/naive_bayes_output/permutation_importance.png
+
+======================================================================
+  STEP 7 – BASELINE vs TUNED COMPARISON
+======================================================================
+                                                   model  accuracy  macro_precision  macro_recall  macro_f1  macro_roc_auc  log_loss  random_seed
+                                  Naive Bayes (Baseline)  0.124863         0.428926      0.258019  0.125300       0.728278 27.397089           42
+Naive Bayes (Tuned: {'classifier__var_smoothing': 0.01})  0.537408         0.435368      0.447630  0.415676       0.780527  2.993692           42
+
+  Macro-F1 change from tuning: +0.2904 (improvement)
+
+  -> saved (this model): /Users/kjellvandebergh/dev/data-science/outputs/naive_bayes_output/model_comparison_summary.csv
+  -> updated (shared)  : /Users/kjellvandebergh/dev/data-science/outputs/model_comparison_summary.csv
+
+  Serialized tuned model -> /Users/kjellvandebergh/dev/data-science/outputs/naive_bayes_output/model_naive_bayes.joblib
+
+######################################################################
+  DONE. All outputs saved in: /Users/kjellvandebergh/dev/data-science/outputs/naive_bayes_output
+  RANDOM SEED USED: 42  <-- shared across all models
+######################################################################
+
