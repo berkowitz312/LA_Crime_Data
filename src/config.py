@@ -72,7 +72,7 @@ def find_mo_codes() -> Path | None:
 RANDOM_SEED = 42
 
 # Target column (created in data_cleaning.py):
-# Violent / Property / Sexual Assault / Vehicle / Other.
+# Violent / Property / Vehicle / Other.
 TARGET_COLUMN = "category"
 
 TEST_SIZE = 0.20    # 80/20 train/test
@@ -170,21 +170,40 @@ MODEL_PARAMS = {
     },
 
     "xgboost": {
+        # Regularized defaults + a high n_estimators ceiling that early stopping
+        # trims down (see early_stopping). Shallower trees, slower learning rate,
+        # and the L1/L2 + split-penalty terms all curb overfitting.
         "baseline": {
-            "n_estimators":     300,
-            "max_depth":        6,
-            "learning_rate":    0.1,
+            "n_estimators":     800,    # ceiling only; early stopping picks the real count
+            "max_depth":        5,
+            "learning_rate":    0.05,
             "subsample":        0.8,
             "colsample_bytree": 0.8,
+            "min_child_weight": 5,      # more evidence required per leaf
+            "gamma":            1.0,    # min loss reduction to make a split
+            "reg_lambda":       2.0,    # L2 on leaf weights
+            "reg_alpha":        0.5,    # L1 on leaf weights
             "objective":        "multi:softprob",
             "tree_method":      "hist",
             "n_jobs":           -1,
         },
+        # Early stopping carves a stratified validation set from TRAIN and stops
+        # boosting once its mlogloss stops improving for `rounds` rounds.
+        "early_stopping": {
+            "rounds":   50,
+            "val_size": 0.1,
+        },
+        # Fixed tree count used during GridSearchCV: early stopping can't run
+        # cleanly inside the CV+Pipeline, so the search compares params at a
+        # moderate capacity; the final tuned model is then refit with early stopping.
+        "tuning_n_estimators": 300,
+        # Grid focuses on regularization (depth + min_child_weight + gamma) rather
+        # than tree count. 3x2x2x2 = 24 combos.
         "param_grid": {
-            "classifier__max_depth":     [4, 6, 8],
-            "classifier__learning_rate": [0.05, 0.1, 0.2],
-            "classifier__n_estimators":  [200, 400],
-            "classifier__subsample":     [0.8, 1.0],
+            "classifier__max_depth":        [3, 5, 7],
+            "classifier__learning_rate":    [0.05, 0.1],
+            "classifier__min_child_weight": [1, 5],
+            "classifier__gamma":            [0, 1.0],
         },
     },
 

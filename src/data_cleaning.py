@@ -88,7 +88,7 @@ def mo_codes_to_category_hint(mo_field: str, code_to_cat: dict) -> str:
 # =============================================================================
 # 2.  CRIME CODE -> SIMPLIFIED CATEGORY MAP
 # =============================================================================
-# Maps the dataset's ~140 distinct Crm Cd values down to 5 interpretable
+# Maps the dataset's ~140 distinct Crm Cd values down to 4 interpretable
 # buckets: Violent, Property, Vehicle, Other.
 # Codes not listed below default to "Other".
 
