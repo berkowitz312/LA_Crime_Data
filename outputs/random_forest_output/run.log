@@ -1,0 +1,129 @@
+
+######################################################################
+  RANDOM FOREST — LA Crime Category Prediction
+  RANDOM SEED USED THROUGHOUT: 42
+######################################################################
+
+======================================================================
+  STEP 1 – LOADING ENGINEERED FEATURES DATASET
+======================================================================
+  File  : /Users/kjellvandebergh/dev/data-science/data/processed/la_crime_features.csv
+  Shape : (918443, 26)
+
+======================================================================
+  STEP 2 – FEATURE SELECTION
+======================================================================
+  Selected feature groups: TIME, LOCATION, VICTIM DEMOGRAPHICS, PREMISE
+  Excluded on purpose: weapon_desc, status_desc (would leak the target)
+  Final feature set (10 features + target):
+    ['lat', 'lon', 'vict_age', 'hour', 'month', 'day_of_week', 'area_name', 'vict_sex', 'vict_descent', 'premis_group']
+  -> saved: /Users/kjellvandebergh/dev/data-science/outputs/random_forest_output/class_distribution.png
+
+  Target classes (5): ['Other', 'Property', 'Sexual Assault', 'Vehicle', 'Violent']
+
+======================================================================
+  STEP 3 – PRE-PROCESSING  (impute + one-hot, no scaling for trees)
+======================================================================
+  Numeric (median-imputed)   : ['lat', 'lon', 'vict_age', 'hour', 'month', 'day_of_week']
+  Categorical (one-hot)      : ['area_name', 'vict_sex', 'vict_descent', 'premis_group']
+
+======================================================================
+  STEP 4 – TRAIN / TEST SPLIT
+======================================================================
+  Reusing SHARED split        : /Users/kjellvandebergh/dev/data-science/data/processed/train_test_split_indices.csv
+  (identical held-out rows as every other model in the comparison)
+  Split        : 80% train / 20% test
+  Random seed  : 42
+  Stratified by: 'category'
+  Train shape  : (734754, 10)
+  Test shape   : (183689, 10)
+
+======================================================================
+  STEP 5 – BASELINE MODEL
+======================================================================
+
+  -- BASELINE Results --
+  Accuracy        : 0.6785
+  Macro Precision : 0.6208
+  Macro Recall    : 0.4745
+  Macro F1        : 0.4916
+  Macro ROC-AUC   : 0.8388
+  Log Loss        : 0.9519
+
+  Per-class report:
+                precision    recall  f1-score   support
+
+         Other       0.46      0.06      0.11      6323
+      Property       0.69      0.75      0.72     69229
+Sexual Assault       0.58      0.16      0.25      5835
+       Vehicle       0.78      0.77      0.77     47726
+       Violent       0.59      0.63      0.61     54576
+
+      accuracy                           0.68    183689
+     macro avg       0.62      0.47      0.49    183689
+  weighted avg       0.67      0.68      0.66    183689
+
+  -> saved: /Users/kjellvandebergh/dev/data-science/outputs/random_forest_output/confusion_matrix_baseline.png
+
+======================================================================
+  STEP 6 – HYPERPARAMETER TUNING (GridSearchCV)
+======================================================================
+  Search space : {'classifier__n_estimators': [200], 'classifier__max_depth': [10, 20], 'classifier__min_samples_leaf': [1, 5], 'classifier__max_features': ['sqrt']}
+  CV           : StratifiedKFold(3), scoring=f1_macro
+Fitting 3 folds for each of 4 candidates, totalling 12 fits
+
+  Best parameters found : {'classifier__max_depth': 20, 'classifier__max_features': 'sqrt', 'classifier__min_samples_leaf': 1, 'classifier__n_estimators': 200}
+  Best CV macro-F1      : 0.4564
+  -> saved: /Users/kjellvandebergh/dev/data-science/outputs/random_forest_output/grid_search_results.csv
+
+  -- TUNED Results --
+  Accuracy        : 0.6756
+  Macro Precision : 0.6527
+  Macro Recall    : 0.4528
+  Macro F1        : 0.4586
+  Macro ROC-AUC   : 0.8442
+  Log Loss        : 0.8504
+
+  Per-class report:
+                precision    recall  f1-score   support
+
+         Other       0.54      0.01      0.02      6323
+      Property       0.68      0.76      0.72     69229
+Sexual Assault       0.67      0.10      0.17      5835
+       Vehicle       0.78      0.76      0.77     47726
+       Violent       0.59      0.63      0.61     54576
+
+      accuracy                           0.68    183689
+     macro avg       0.65      0.45      0.46    183689
+  weighted avg       0.67      0.68      0.66    183689
+
+  -> saved: /Users/kjellvandebergh/dev/data-science/outputs/random_forest_output/confusion_matrix_tuned.png
+  -> saved: /Users/kjellvandebergh/dev/data-science/outputs/random_forest_output/roc_curves_tuned.png
+
+  [PLOT] Feature importance (impurity/Gini-based, averaged over the forest)
+  -> saved: /Users/kjellvandebergh/dev/data-science/outputs/random_forest_output/feature_importance.png
+  -> saved: /Users/kjellvandebergh/dev/data-science/outputs/random_forest_output/precision_recall_f1_by_class.png
+  -> saved: /Users/kjellvandebergh/dev/data-science/outputs/random_forest_output/baseline_vs_tuned_metrics.png
+
+  [PLOT] Feature importance variability (mean ± std across the trees)
+  -> saved: /Users/kjellvandebergh/dev/data-science/outputs/random_forest_output/feature_importance_variability.png
+
+======================================================================
+  STEP 7 – BASELINE vs TUNED COMPARISON
+======================================================================
+                                                                                                                                                       model  accuracy  macro_precision  macro_recall  macro_f1  macro_roc_auc  log_loss  random_seed
+                                                                                                                                    Random Forest (Baseline)  0.678451         0.620827      0.474488  0.491628       0.838836  0.951894           42
+Random Forest (Tuned: {'classifier__max_depth': 20, 'classifier__max_features': 'sqrt', 'classifier__min_samples_leaf': 1, 'classifier__n_estimators': 200})  0.675647         0.652726      0.452782  0.458574       0.844174  0.850427           42
+
+  Macro-F1 change from tuning: -0.0331 (no improvement / regression)
+
+  -> saved (this model): /Users/kjellvandebergh/dev/data-science/outputs/random_forest_output/model_comparison_summary.csv
+  -> updated (shared)  : /Users/kjellvandebergh/dev/data-science/outputs/model_comparison_summary.csv
+
+  Serialized tuned model -> /Users/kjellvandebergh/dev/data-science/outputs/random_forest_output/model_random_forest.joblib
+
+######################################################################
+  DONE. All outputs saved in: /Users/kjellvandebergh/dev/data-science/outputs/random_forest_output
+  RANDOM SEED USED: 42  <-- shared across all models
+######################################################################
+

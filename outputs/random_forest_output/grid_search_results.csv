@@ -1,0 +1,5 @@
+param_classifier__max_depth,param_classifier__max_features,param_classifier__min_samples_leaf,param_classifier__n_estimators,mean_test_score,std_test_score,rank_test_score
+20,sqrt,1,200,0.4564411346760015,0.0006162986040992632,1
+20,sqrt,5,200,0.44297593278375064,0.0019219202191044589,2
+10,sqrt,1,200,0.4051762197912068,0.0002992146704871484,3
+10,sqrt,5,200,0.4051711939239564,0.0007992993247639476,4

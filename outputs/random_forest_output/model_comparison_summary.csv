@@ -1,0 +1,3 @@
+model,accuracy,macro_precision,macro_recall,macro_f1,macro_roc_auc,log_loss,random_seed
+Random Forest (Baseline),0.6784510776366576,0.6208272574722705,0.4744883453796781,0.4916280047697474,0.8388364836806348,0.9518942288553784,42
+"Random Forest (Tuned: {'classifier__max_depth': 20, 'classifier__max_features': 'sqrt', 'classifier__min_samples_leaf': 1, 'classifier__n_estimators': 200})",0.6756474258121064,0.6527258110969486,0.4527817882552709,0.45857449405955164,0.8441738042466922,0.850426976636411,42

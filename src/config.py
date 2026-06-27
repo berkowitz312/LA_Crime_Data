@@ -161,12 +161,18 @@ MODEL_PARAMS = {
             "max_features":     "sqrt",
             "n_jobs":           -1,
         },
+        # Trimmed grid for a faster run (4 combos x 3 folds = 12 fits, depth-capped).
         "param_grid": {
-            "classifier__n_estimators":     [100, 300],
-            "classifier__max_depth":        [10, 20, None],
+            "classifier__n_estimators":     [200],
+            "classifier__max_depth":        [10, 20],
             "classifier__min_samples_leaf": [1, 5],
-            "classifier__max_features":     ["sqrt", "log2"],
+            "classifier__max_features":     ["sqrt"],
         },
+        # Full grid (restore for the final deliverable run — 24 combos x 3 folds = 72 fits):
+        #   "classifier__n_estimators":     [100, 300],
+        #   "classifier__max_depth":        [10, 20, None],
+        #   "classifier__min_samples_leaf": [1, 5],
+        #   "classifier__max_features":     ["sqrt", "log2"],
     },
 
     "xgboost": {
