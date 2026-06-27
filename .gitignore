@@ -19,3 +19,4 @@ data/City_Boundary_of_Los_Angeles_-_Feature_Layer_(hosted).csv
 
 # ── Generated / processed data (re-created by pipeline) ──
 data/processed/
+course_content/
