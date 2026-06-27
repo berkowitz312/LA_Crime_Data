@@ -18,6 +18,7 @@ import seaborn as sns
 import joblib
 from pathlib import Path
 
+from sklearn.base import clone
 from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder, label_binarize
 from sklearn.compose import ColumnTransformer
@@ -55,7 +56,7 @@ PARAMS        = cfg.MODEL_PARAMS[MODEL_KEY]
 sns.set_theme(style="darkgrid", font_scale=1.0)
 ACCENT, COOL, WARM, DARK_BG = "#E63946", "#457B9D", "#F4A261", "#1D3557"
 CATEGORY_COLORS = {
-    "Violent": "#E63946", "Property": "#457B9D", "Sexual Assault": "#9D4EDD",
+    "Violent": "#E63946", "Property": "#457B9D",
     "Vehicle": "#F4A261", "Other": "#6C757D",
 }
 
@@ -203,27 +204,58 @@ def load_or_create_split(work: pd.DataFrame):
 # 5.  MODELS  (baseline + tuned)
 # =============================================================================
 
-def build_baseline_model(preprocessor, n_classes: int):
-    """Baseline XGBoost using the defaults from config."""
-    base = dict(PARAMS["baseline"])
+def fit_with_early_stopping(params: dict, preprocessor, X_train, y_train_enc, n_classes: int):
+    """Fit an XGBoost model with early stopping and return (fitted_pipeline, best_iteration).
+
+    A stratified validation set is carved from TRAIN; the preprocessor is fit on the
+    train portion only (no leakage), and boosting stops once validation mlogloss
+    stops improving for `early_stopping.rounds` rounds. The n_estimators value in
+    `params` acts only as a ceiling.
+
+    The returned Pipeline wraps the already-fitted preprocessor + booster; downstream
+    code only calls predict / predict_proba / named_steps, so it is never refit.
+    """
+    es = PARAMS["early_stopping"]
+    X_tr, X_val, y_tr, y_val = train_test_split(
+        X_train, y_train_enc,
+        test_size=es["val_size"],
+        random_state=RANDOM_SEED,
+        stratify=y_train_enc,
+    )
+
+    pre = clone(preprocessor)
+    Xtr = pre.fit_transform(X_tr)      # fit on train portion only
+    Xval = pre.transform(X_val)
+
     model = XGBClassifier(
-        **base,
+        **params,
         num_class=n_classes,
         random_state=RANDOM_SEED,
         eval_metric="mlogloss",
+        early_stopping_rounds=es["rounds"],
     )
-    return Pipeline(steps=[("preprocess", preprocessor), ("classifier", model)])
+    model.fit(Xtr, y_tr, eval_set=[(Xval, y_val)], verbose=False)
+
+    pipeline = Pipeline(steps=[("preprocess", pre), ("classifier", model)])
+    return pipeline, model.best_iteration
 
 
 def tune_model(preprocessor, X_train, y_train, n_classes: int):
-    """GridSearchCV over the config grid, scored on macro-F1 with stratified folds."""
+    """GridSearchCV over the config grid (scored on macro-F1, stratified folds) to
+    pick the regularization/structure params, then refit the FINAL tuned model with
+    early stopping so its tree count is chosen on a validation set.
+
+    Returns (final_pipeline, best_params, best_iteration). The grid itself runs at a
+    fixed `tuning_n_estimators` (no early stopping inside the CV+Pipeline)."""
     print(f"\n{'='*70}")
     print("  STEP 6 – HYPERPARAMETER TUNING (GridSearchCV)")
     print(f"{'='*70}")
     print(f"  Search space : {PARAMS['param_grid']}")
     print(f"  CV           : StratifiedKFold({cfg.CV_FOLDS}), scoring=f1_macro")
+    print(f"  Search trees : n_estimators={PARAMS['tuning_n_estimators']} (early stopping applied to the final refit)")
 
     model = XGBClassifier(
+        n_estimators=PARAMS["tuning_n_estimators"],
         objective=PARAMS["baseline"].get("objective", "multi:softprob"),
         tree_method=PARAMS["baseline"].get("tree_method", "hist"),
         num_class=n_classes,
@@ -255,7 +287,19 @@ def tune_model(preprocessor, X_train, y_train, n_classes: int):
     cv_results.to_csv(cv_path, index=False)
     print(f"  -> saved: {cv_path}")
 
-    return grid.best_estimator_, grid.best_params_
+    # Merge the grid's best params onto the regularized baseline (so reg_lambda /
+    # reg_alpha / subsample / colsample carry over and n_estimators=800 becomes the
+    # early-stopping ceiling), then refit the final model with early stopping.
+    best_params = {k.replace("classifier__", ""): v for k, v in grid.best_params_.items()}
+    final_params = dict(PARAMS["baseline"]); final_params.update(best_params)
+    print(f"\n  Refitting final tuned model with early stopping "
+          f"(ceiling n_estimators={final_params['n_estimators']})...")
+    final_pipeline, best_iter = fit_with_early_stopping(
+        final_params, preprocessor, X_train, y_train, n_classes
+    )
+    print(f"  Early stopping chose {best_iter + 1} trees for the tuned model.")
+
+    return final_pipeline, grid.best_params_, best_iter
 
 
 # =============================================================================
@@ -396,35 +440,48 @@ def plot_baseline_vs_tuned(baseline, tuned, filename: str):
 
 
 def plot_training_curve(best_params, preprocessor, X_train, y_train_enc,
-                        X_test, y_test_enc, n_classes: int, filename: str):
-    """Refit the tuned params with an eval_set to plot train/test log-loss per
-    boosting round (shows convergence and any overfitting gap)."""
-    print(f"\n  [PLOT] Training curve (mlogloss vs boosting round)")
+                        n_classes: int, filename: str):
+    """Refit the tuned params with early stopping on a validation carve and plot
+    train vs validation mlogloss per boosting round. A vertical line marks the
+    early-stopping point; the train/val gap shows how well overfitting is controlled."""
+    print(f"\n  [PLOT] Training curve (mlogloss vs boosting round, with early stopping)")
     clf_params = {k.replace("classifier__", ""): v for k, v in best_params.items()}
     base = dict(PARAMS["baseline"]); base.update(clf_params)
     # These are passed explicitly below; drop them from the config copy.
     for k in ("num_class", "random_state", "eval_metric"):
         base.pop(k, None)
 
-    # Apply the fitted preprocessing, then train a booster with eval tracking.
-    Xtr = preprocessor.fit_transform(X_train)
-    Xte = preprocessor.transform(X_test)
+    es = PARAMS["early_stopping"]
+    X_tr, X_val, y_tr, y_val = train_test_split(
+        X_train, y_train_enc,
+        test_size=es["val_size"],
+        random_state=RANDOM_SEED,
+        stratify=y_train_enc,
+    )
+    pre = clone(preprocessor)
+    Xtr = pre.fit_transform(X_tr)          # fit on train portion only
+    Xval = pre.transform(X_val)
+
+    # Early stopping watches the LAST eval_set entry (validation) — never test.
     model = XGBClassifier(
         **base, num_class=n_classes, random_state=RANDOM_SEED,
-        eval_metric="mlogloss",
+        eval_metric="mlogloss", early_stopping_rounds=es["rounds"],
     )
-    model.fit(Xtr, y_train_enc, eval_set=[(Xtr, y_train_enc), (Xte, y_test_enc)], verbose=False)
+    model.fit(Xtr, y_tr, eval_set=[(Xtr, y_tr), (Xval, y_val)], verbose=False)
     results = model.evals_result()
 
     train_ll = results["validation_0"]["mlogloss"]
-    test_ll  = results["validation_1"]["mlogloss"]
+    val_ll   = results["validation_1"]["mlogloss"]
     rounds   = range(1, len(train_ll) + 1)
+    best_round = model.best_iteration + 1
 
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.plot(rounds, train_ll, label="Train", color=COOL, linewidth=2)
-    ax.plot(rounds, test_ll,  label="Test",  color=ACCENT, linewidth=2)
+    ax.plot(rounds, val_ll,   label="Validation", color=ACCENT, linewidth=2)
+    ax.axvline(best_round, color=DARK_BG, linestyle="--", linewidth=1.5,
+               label=f"Early stop (round {best_round})")
     ax.set_xlabel("Boosting round"); ax.set_ylabel("Multi-class log-loss")
-    ax.set_title("XGBoost Training Curve (tuned params)",
+    ax.set_title("XGBoost Training Curve (tuned params, early stopping)",
                  fontsize=13, fontweight="bold", color=DARK_BG)
     ax.legend()
     plt.tight_layout()
@@ -542,17 +599,20 @@ def run_shap_analysis(pipeline, X_explain_df, class_labels, sample_size=SHAP_SAM
 # 8.  COMPARISON SUMMARY  (per-model copy + upsert into the shared table)
 # =============================================================================
 
-def write_comparison(baseline, tuned, best_params):
+def write_comparison(baseline, tuned, best_params, baseline_iter=None, tuned_iter=None):
     print(f"\n{'='*70}")
     print("  STEP 8 – BASELINE vs TUNED COMPARISON")
     print(f"{'='*70}")
+    # Tree counts chosen by early stopping (best_iteration is 0-based).
+    baseline_trees = f" [{baseline_iter + 1} trees]" if baseline_iter is not None else ""
+    tuned_trees    = f", {tuned_iter + 1} trees" if tuned_iter is not None else ""
     comparison = pd.DataFrame([
-        {"model": "XGBoost (Baseline)",
+        {"model": f"XGBoost (Baseline{baseline_trees})",
          "accuracy": baseline["accuracy"], "macro_precision": baseline["macro_precision"],
          "macro_recall": baseline["macro_recall"], "macro_f1": baseline["macro_f1"],
          "macro_roc_auc": baseline["macro_roc_auc"], "log_loss": baseline["log_loss"],
          "random_seed": RANDOM_SEED},
-        {"model": f"XGBoost (Tuned: {best_params})",
+        {"model": f"XGBoost (Tuned: {best_params}{tuned_trees})",
          "accuracy": tuned["accuracy"], "macro_precision": tuned["macro_precision"],
          "macro_recall": tuned["macro_recall"], "macro_f1": tuned["macro_f1"],
          "macro_roc_auc": tuned["macro_roc_auc"], "log_loss": tuned["log_loss"],
@@ -614,12 +674,14 @@ def main():
     y_train_enc = le.transform(y_train)
     y_test_enc  = le.transform(y_test)
 
-    # ---- Baseline ----
+    # ---- Baseline (regularized config defaults + early stopping) ----
     print(f"\n{'='*70}")
-    print("  STEP 5 – BASELINE MODEL")
+    print("  STEP 5 – BASELINE MODEL  (regularized + early stopping)")
     print(f"{'='*70}")
-    baseline_pipeline = build_baseline_model(preprocessor, n_classes)
-    baseline_pipeline.fit(X_train, y_train_enc)
+    baseline_pipeline, baseline_iter = fit_with_early_stopping(
+        dict(PARAMS["baseline"]), preprocessor, X_train, y_train_enc, n_classes
+    )
+    print(f"  Early stopping chose {baseline_iter + 1} trees for the baseline model.")
     baseline_results = evaluate_model(baseline_pipeline, X_test, y_test_enc,
                                       "BASELINE", class_labels, le)
     plot_confusion_matrix(baseline_results["y_test"], baseline_results["y_pred"],
@@ -627,7 +689,9 @@ def main():
                           "confusion_matrix_baseline.png")
 
     # ---- Tuned ----
-    tuned_pipeline, best_params = tune_model(preprocessor, X_train, y_train_enc, n_classes)
+    tuned_pipeline, best_params, tuned_iter = tune_model(
+        preprocessor, X_train, y_train_enc, n_classes
+    )
     tuned_results = evaluate_model(tuned_pipeline, X_test, y_test_enc,
                                    "TUNED", class_labels, le)
 
@@ -642,13 +706,14 @@ def main():
                            class_labels, "precision_recall_f1_by_class.png")
     plot_baseline_vs_tuned(baseline_results, tuned_results, "baseline_vs_tuned_metrics.png")
     plot_training_curve(best_params, preprocessor, X_train, y_train_enc,
-                        X_test, y_test_enc, n_classes, "training_curve.png")
+                        n_classes, "training_curve.png")
 
     # ---- SHAP explainability (on the tuned model, held-out rows) ----
     run_shap_analysis(tuned_pipeline, X_test, class_labels)
 
     # ---- Comparison summary ----
-    write_comparison(baseline_results, tuned_results, best_params)
+    write_comparison(baseline_results, tuned_results, best_params,
+                     baseline_iter, tuned_iter)
 
     # ---- Persist the tuned model (+ label encoder) ----
     model_path = OUT_DIR / "model_xgboost.joblib"

@@ -64,7 +64,7 @@ TUNE    = PARAMS["tuning"]
 sns.set_theme(style="darkgrid", font_scale=1.0)
 ACCENT, COOL, WARM, DARK_BG = "#E63946", "#457B9D", "#F4A261", "#1D3557"
 CATEGORY_COLORS = {
-    "Violent": "#E63946", "Property": "#457B9D", "Sexual Assault": "#9D4EDD",
+    "Violent": "#E63946", "Property": "#457B9D",
     "Vehicle": "#F4A261", "Other": "#6C757D",
 }
 
