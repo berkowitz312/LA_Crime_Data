@@ -1,0 +1,825 @@
+code,description,category
+0100,Suspect Impersonate,Suspect Impersonation
+0101,Aid victim,Suspect Impersonation
+0102,Blind,Suspect Impersonation
+0103,Physically disabled,Suspect Impersonation
+0104,Customer,Suspect Impersonation
+0105,Delivery,Suspect Impersonation
+0106,Doctor,Suspect Impersonation
+0107,God,Suspect Impersonation
+0108,Infirm,Suspect Impersonation
+0109,Inspector,Suspect Impersonation
+0110,Involved in traffic/accident,Suspect Impersonation
+0112,Police,Suspect Impersonation
+0113,Renting,Suspect Impersonation
+0114,Repair Person,Suspect Impersonation
+0115,Returning stolen property,Suspect Impersonation
+0116,Satan,Suspect Impersonation
+0117,Salesman,Suspect Impersonation
+0118,Seeking someone,Suspect Impersonation
+0119,Sent by owner,Suspect Impersonation
+0120,Social Security/Medicare,Suspect Impersonation
+0121,DWP/Gas Company/Utility worker,Suspect Impersonation
+0122,Contractor,Suspect Impersonation
+0123,Gardener/Tree Trimmer,Suspect Impersonation
+0200,Suspect wore disguise,Suspect Disguise
+0201,Bag,Suspect Disguise
+0202,Cap/hat,Suspect Disguise
+0203,Cloth (with eyeholes),Suspect Disguise
+0204,Clothes of opposite sex,Suspect Disguise
+0205,Earring,Suspect Disguise
+0206,Gloves,Suspect Disguise
+0207,Handkerchief,Suspect Disguise
+0208,Halloween mask,Suspect Disguise
+0209,Mask,Suspect Disguise
+0210,Make up (males only),Suspect Disguise
+0211,Shoes,Suspect Disguise
+0212,Nude/partly nude,Suspect Disguise
+0213,Ski mask,Suspect Disguise
+0214,Stocking,Suspect Disguise
+0215,Unusual clothes,Suspect Disguise
+0216,Suspect wore hood/hoodie,Suspect Disguise
+0217,Uniform,Suspect Disguise
+0218,Wig,Suspect Disguise
+0219,Mustache-Fake,Suspect Disguise
+0220,Suspect wore motorcycle helmet,Suspect Disguise
+0301,Escaped on (used) transit train,Suspect Actions
+0302,Aimed gun,Suspect Actions
+0303,Ambushed,Suspect Actions
+0304,Ate/drank on premises,Suspect Actions
+0305,Attacks from rear,Suspect Actions
+0306,Crime on upper floor,Suspect Actions
+0307,Defecated/urinated,Suspect Actions
+0308,Demands jewelry,Suspect Actions
+0309,Drive-by shooting,Suspect Actions
+0310,Got victim to withdraw savings,Suspect Actions
+0311,Graffiti,Suspect Actions
+0312,Gun in waistband,Suspect Actions
+0313,Hid in building,Suspect Actions
+0314,Hot Prowl,Suspect Actions
+0315,Jumped counter/goes behind counter,Suspect Actions
+0316,Makes victim give money,Suspect Actions
+0317,Pillowcase/suitcase,Suspect Actions
+0318,Prepared exit,Suspect Actions
+0319,Profanity Used,Suspect Actions
+0320,Quiet polite,Suspect Actions
+0321,Ransacked,Suspect Actions
+0322,Smashed display case,Suspect Actions
+0323,Smoked on premises,Suspect Actions
+0324,Takes money from register,Suspect Actions
+0325,Took merchandise,Suspect Actions
+0326,Used driver,Suspect Actions
+0327,Used lookout,Suspect Actions
+0328,Used toilet,Suspect Actions
+0329,Vandalized,Suspect Actions
+0330,Victims vehicle taken,Suspect Actions
+0331,Mailbox Bombing,Suspect Actions
+0332,Mailbox Vandalism,Suspect Actions
+0333,Used hand held radios,Suspect Actions
+0334,Brandishes weapon,Suspect Actions
+0335,Cases location,Suspect Actions
+0336,Chain snatch,Suspect Actions
+0337,Demands money,Suspect Actions
+0338,Disables Telephone,Suspect Actions
+0339,Disables video camera,Suspect Actions
+0340,Suspect follows victim/follows victim home,Suspect Actions
+0341,Makes vict lie down,Suspect Actions
+0342,Multi-susps overwhelm,Suspect Actions
+0343,Orders vict to rear room,Suspect Actions
+0344,Removes vict property,Suspect Actions
+0345,Riding bike,Suspect Actions
+0346,Snatch property and runs,Suspect Actions
+0347,Stalks vict,Suspect Actions
+0348,Takeover other,Suspect Actions
+0349,Takes mail,Suspect Actions
+0350,Concealed victim's body,Suspect Actions
+0351,Disabled Security,Suspect Actions
+0352,Took Victim's clothing or jewelry,Suspect Actions
+0353,Weapon Concealed,Suspect Actions
+0354,Suspect takes car keys,Suspect Actions
+0355,Demanded property other than money,Suspect Actions
+0356,Suspect spits on victim,Suspect Actions
+0357,Cuts or breaks purse strap,Suspect Actions
+0358,Forces Entry,Suspect Actions
+0359,Made unusual statement,Suspect Actions
+0360,Suspect is Other Family Member,Suspect Actions
+0361,Suspect is neighbor,Suspect Actions
+0362,Suspect attempts to carry victim away,Suspect Actions
+0363,Home invasion,Suspect Actions
+0364,Suspect is babysitter,Suspect Actions
+0365,Takeover robbery,Suspect Actions
+0366,Ordered vict to open safe,Suspect Actions
+0367,Was Transit Patrol,Suspect Actions
+0368,Suspect speaks foreign language,Suspect Actions
+0369,Suspect speaks spanish,Suspect Actions
+0370,Frisks victim/pats down victim/searches victim,Suspect Actions
+0371,Gang affiliation questions asked/made gang statement,Suspect Actions
+0372,Photographed victim/took pictures of victim,Suspect Actions
+0373,Physically disabled/in wheelchair,Suspect Actions
+0374,Gang signs/threw gang signs using hands,Suspect Actions
+0375,Removes cash register,Suspect Actions
+0376,Makes victim kneel,Suspect Actions
+0377,Takes vict's identification/driver license,Suspect Actions
+0378,Brings own bag,Suspect Actions
+0379,Turns off lights/electricity,Suspect Actions
+0380,Distracts Victim,Suspect Actions
+0381,Suspect apologizes,Suspect Actions
+0382,Removed money/property from safe,Suspect Actions
+0383,Suspect entered during open house/party/estate/yard sale,Suspect Actions
+0384,Suspect removed drugs from location,Suspect Actions
+0385,Suspect removed parts from vehicle,Suspect Actions
+0386,Suspect removed property from trunk of vehicle,Suspect Actions
+0387,Weapon (other than gun) in waistband,Suspect Actions
+0388,Suspect points laser at plane/helicopter,Suspect Actions
+0389,Knock-knock,Suspect Actions
+0390,Purse snatch,Suspect Actions
+0391,Used demand note,Suspect Actions
+0392,False Emergency Reporting,Suspect Actions
+0393,911 Abuse,Suspect Actions
+0394,Susp takes UPS/Fedex/USPS packages,Suspect Actions
+0395,Murder/Suicide,Suspect Actions
+0396,Used paper plates to disguise license number,Suspect Actions
+0397,Cut lock (to bicycle/gate/etc.),Suspect Actions
+0398,Roof access (remove A/C/equip/etc.),Suspect Actions
+0399,Vehicle to Vehicle shooting,Suspect Actions
+0400,Force used,Force Used
+0401,Bit,Force Used
+0402,Blindfolded,Force Used
+0403,Bomb Threat - Bomb found,Force Used
+0404,Bomb Threat - no bomb,Force Used
+0405,Bound,Force Used
+0406,Brutal Assault,Force Used
+0407,Burned Victim,Force Used
+0408,Choked/uses choke hold/Strangulation,Force Used
+0409,Cover mouth w/hands,Force Used
+0410,Covered victim's face,Force Used
+0411,Cut/stabbed,Force Used
+0412,Disfigured,Force Used
+0413,Drugged,Force Used
+0414,Gagged,Force Used
+0415,Handcuffed/Metal,Force Used
+0416,Hit-Hit w/ weapon,Force Used
+0417,Kicked,Force Used
+0418,Kidnapped,Force Used
+0419,Pulled victims hair,Force Used
+0420,Searched,Force Used
+0421,Threaten to kill,Force Used
+0422,Threaten Victims family,Force Used
+0423,Tied victim to object,Force Used
+0424,Tore clothes off victim,Force Used
+0425,Tortured,Force Used
+0426,Twisted arm,Force Used
+0427,Whipped,Force Used
+0428,Dismembered,Force Used
+0429,Vict knocked to ground,Force Used
+0430,Vict shot,Force Used
+0431,Sprayed with chemical,Force Used
+0432,Intimidation,Force Used
+0433,Makes victim kneel,Force Used
+0434,Bed Sheets/Linens,Force Used
+0435,Chain,Force Used
+0436,Clothing,Force Used
+0437,Flexcuffs/Plastic Tie,Force Used
+0438,Rope/Cordage,Force Used
+0439,Tape/Electrical etc.,Force Used
+0440,Telephone/Electric Cord,Force Used
+0441,Wire,Force Used
+0442,Active Shooter/Armed person who has used deadly physical force,Force Used
+0443,Threaten to harm victim (other than kill),Force Used
+0444,Pushed,Force Used
+0445,Suspect swung weapon,Force Used
+0446,Suspect swung fist,Force Used
+0447,Suspect threw object at victim,Force Used
+0448,Grabbed,Force Used
+0449,Put a weapon to body,Force Used
+0450,Suspect shot at victim (no hits),Force Used
+0451,Suffocation,Force Used
+0500,Sex related acts,Sex Related
+0501,Susp ejaculated outside victim,Sex Related
+0502,Fecal Fetish,Sex Related
+0503,Fondle victim,Sex Related
+0504,Forced to disrobe,Sex Related
+0505,Forced to fondle suspect,Sex Related
+0506,Forced to masturbate suspect,Sex Related
+0507,Forced to orally copulate suspect,Sex Related
+0508,Hit victim prior/during/after act,Sex Related
+0509,Hugged,Sex Related
+0510,Kissed victims body/face,Sex Related
+0511,Masochism/bondage,Sex Related
+0512,Orally copulated victim,Sex Related
+0513,Photographed victim,Sex Related
+0514,Pornography,Sex Related
+0515,Put hand/finger or object into vagina,Sex Related
+0516,Reached climax/ejaculated,Sex Related
+0517,Sadism/Sexual gratification obtained by infliction of pain,Sex Related
+0518,Simulated intercourse,Sex Related
+0519,Sodomy,Sex Related
+0520,Solicited/offered immoral act,Sex Related
+0521,Tongue or mouth to anus,Sex Related
+0522,Touched,Sex Related
+0523,Unable to get erection,Sex Related
+0524,Underwear Fetish,Sex Related
+0525,Urinated,Sex Related
+0526,Utilized Condom,Sex Related
+0527,Actual Intercourse,Sex Related
+0528,Masturbate,Sex Related
+0529,Indecent Exposure,Sex Related
+0530,Used lubricant,Sex Related
+0531,Suspect made sexually suggestive remarks,Sex Related
+0532,Suspect undressed victim,Sex Related
+0533,Consentual Sex,Sex Related
+0534,Suspect in vehicle nude/partially nude,Sex Related
+0535,Suspect asks minor's name,Sex Related
+0536,Suspect removes own clothing,Sex Related
+0537,Suspect removes victim's clothing,Sex Related
+0538,Suspect fondles self,Sex Related
+0539,Suspect puts hand in victim's rectum,Sex Related
+0540,Suspect puts finger(s) in victim's rectum,Sex Related
+0541,Suspect puts object(s) in victim's rectum,Sex Related
+0542,Orders victim to undress,Sex Related
+0543,Orders victim to fondle suspect,Sex Related
+0544,Orders victim to fondle self,Sex Related
+0545,Male Victim of sexual assault,Sex Related
+0546,Susp instructs vict to make certain statements,Sex Related
+0547,Suspect force vict to bathe/clean/wipe,Sex Related
+0548,Suspect gives victim douche/enema,Sex Related
+0549,Suspect ejaculates in victims mouth,Sex Related
+0550,Suspect licks victim,Sex Related
+0551,Suspect touches victim genitalia/genitals over clothing,Sex Related
+0552,Suspect is Victim's Father,Sex Related
+0553,Suspect is Victim's Mother,Sex Related
+0554,Suspect is Victim's Brother,Sex Related
+0555,Suspect is Victim's Sister,Sex Related
+0556,Suspect is Victim's Step-Father,Sex Related
+0557,Suspect is Victim's Step-Mother,Sex Related
+0558,Suspect is Victim's Uncle,Sex Related
+0559,Suspect is Victim's Aunt,Sex Related
+0560,Suspect is Victim's Guardian,Sex Related
+0561,Suspect is Victim's Son,Sex Related
+0562,Suspect is Victim's Daughter,Sex Related
+0563,Fetish - Other,Sex Related
+0601,Business,Motive/Relationship
+0602,Family,Motive/Relationship
+0603,Landlord/Tenant/Neighbor,Motive/Relationship
+0604,Reproductive Health Services/Facilities,Motive/Relationship
+0605,Traffic Accident/Traffic related incident,Motive/Relationship
+0701,THEFT: Trick or Device,Theft
+0800,BUNCO,Bunco
+0901,Organized Crime,Circumstances
+0902,Political Activity,Circumstances
+0903,Hatred/Prejudice,Circumstances
+0904,Strike/Labor Troubles,Circumstances
+0905,Terrorist Group,Circumstances
+0906,Gangs,Circumstances
+0907,Narcotics (Buy-Sell-Rip),Circumstances
+0908,Prostitution,Circumstances
+0909,Ritual/Occult,Circumstances
+0910,Public Transit,Circumstances
+0911,Revenge,Circumstances
+0912,Insurance,Circumstances
+0913,Victim knew Suspect,Circumstances
+0914,Other Felony,Circumstances
+0915,Parolee,Circumstances
+0916,Forced theft of vehicle (Car-Jacking),Circumstances
+0917,Victim's Employment,Circumstances
+0918,Career Criminal,Circumstances
+0919,Road Rage,Circumstances
+0920,Homeland Security,Circumstances
+0921,Hate Incident,Circumstances
+0922,ATM Theft with PIN number,Circumstances
+0923,Stolen/Forged Checks (Personal Checks),Circumstances
+0924,Stolen/Forged Checks (Business Checks),Circumstances
+0925,Stolen/Forged Checks (Cashier's Checks),Circumstances
+0926,Forged or Telephonic Prescription,Circumstances
+0927,Fraudulent or forged school loan,Circumstances
+0928,Forged or Fraudulent credit applications,Circumstances
+0929,Unauthorized use of victim's bank account information,Circumstances
+0930,Unauthorized use of victim's credit/debit card or number,Circumstances
+0931,Counterfeit or forged real estate documents,Circumstances
+0932,Suspect uses victim's identity in reporting a traffic collision,Circumstances
+0933,Suspect uses victim's identity when arrested,Circumstances
+0934,Suspect uses victim's identity when receiving a citation,Circumstances
+0935,Misc. Stolen/Forged documents,Circumstances
+0936,Dog Fighting,Circumstances
+0937,Cock Fighting,Circumstances
+0938,Animal Neglect,Circumstances
+0939,Animal Hoarding,Circumstances
+0940,Met online/Chat Room/on Party Line,Circumstances
+0941,Non-Revocable Parole (NRP),Circumstances
+0942,Party/Flier party/Rave Party,Circumstances
+0943,Human Trafficking,Circumstances
+0944,Bait Operation,Circumstances
+0945,Estes Robbery,Circumstances
+0946,Gang Feud,Circumstances
+0947,Motorized Rental Scooter/Bike (Bird/Lime/etc),Circumstances
+1000,Suspects offers/solicits,Suspect Solicitation
+1001,Aid for vehicle,Suspect Solicitation
+1002,Amusement,Suspect Solicitation
+1003,Appraise,Suspect Solicitation
+1004,Assistant,Suspect Solicitation
+1005,Audition,Suspect Solicitation
+1006,Bless,Suspect Solicitation
+1007,Candy,Suspect Solicitation
+1008,Cigarette,Suspect Solicitation
+1009,Directions,Suspect Solicitation
+1010,Drink (not liquor),Suspect Solicitation
+1011,Employment,Suspect Solicitation
+1012,Find a job,Suspect Solicitation
+1013,Food,Suspect Solicitation
+1014,Game,Suspect Solicitation
+1015,Gift,Suspect Solicitation
+1016,Hold for safekeeping,Suspect Solicitation
+1017,Information,Suspect Solicitation
+1018,Liquor,Suspect Solicitation
+1019,Money,Suspect Solicitation
+1020,Narcotics,Suspect Solicitation
+1021,Repair,Suspect Solicitation
+1022,Ride,Suspect Solicitation
+1023,Subscriptions,Suspect Solicitation
+1024,Teach,Suspect Solicitation
+1025,Train,Suspect Solicitation
+1026,Use the phone or toilet,Suspect Solicitation
+1027,Change,Suspect Solicitation
+1028,Suspect solicits time of day,Suspect Solicitation
+1100,Shots Fired,Shots Fired
+1101,Shots Fired (Animal) - Animal Services,Shots Fired
+1201,Absent-advertised in paper,Victim Characteristics
+1202,Victim was aged (60 & over) or blind/physically disabled/unable to care for self,Victim Characteristics
+1203,Victim of crime past 12 months,Victim Characteristics
+1204,Moving,Victim Characteristics
+1205,On Vacation/Tourist,Victim Characteristics
+1206,Under influence drugs/liquor,Victim Characteristics
+1207,Hitchhiker,Victim Characteristics
+1208,Victim was undocumented alien,Victim Characteristics
+1209,Salesman - Jewelry,Victim Characteristics
+1210,Professional (doctor/Lawyer/etc.),Victim Characteristics
+1211,Public Official,Victim Characteristics
+1212,LA Police Officer,Victim Characteristics
+1213,LA Fireman,Victim Characteristics
+1214,Banking - ATM,Victim Characteristics
+1215,Prostitute,Victim Characteristics
+1216,Sales,Victim Characteristics
+1217,Teenager (Use if victim's age is unknown),Victim Characteristics
+1218,Victim was Homeless/Transient,Victim Characteristics
+1219,Nude,Victim Characteristics
+1220,Partially Nude,Victim Characteristics
+1221,Missing Clothing/Jewelry,Victim Characteristics
+1222,Victim was gay,Victim Characteristics
+1223,Riding bike,Victim Characteristics
+1224,Drive-through (not merchant),Victim Characteristics
+1225,Stop sign/light,Victim Characteristics
+1226,Catering Truck Operator,Victim Characteristics
+1227,Delivery person,Victim Characteristics
+1228,Leaving Business Area,Victim Characteristics
+1229,Making bank drop,Victim Characteristics
+1230,Postal employee,Victim Characteristics
+1231,Taxi Driver,Victim Characteristics
+1232,Bank - Arriving at,Victim Characteristics
+1233,Bank - Leaving,Victim Characteristics
+1234,Bar Customer,Victim Characteristics
+1235,Bisexual/sexually oriented towards both sexes,Victim Characteristics
+1236,Clerk/Employer/Owner,Victim Characteristics
+1237,Victim was customer,Victim Characteristics
+1238,Victim was physically disabled,Victim Characteristics
+1239,Transgender,Victim Characteristics
+1240,Vehicle occupant/Passenger,Victim Characteristics
+1241,Spouse,Victim Characteristics
+1242,Parent,Victim Characteristics
+1243,Co-habitants,Victim Characteristics
+1244,Victim was forced into business,Victim Characteristics
+1245,Victim was forced into residence,Victim Characteristics
+1247,Opening business,Victim Characteristics
+1248,Closing business,Victim Characteristics
+1251,Victim was a student,Victim Characteristics
+1252,Victim was a street vendor,Victim Characteristics
+1253,Bus Driver,Victim Characteristics
+1254,Train Operator,Victim Characteristics
+1255,Followed Transit System,Victim Characteristics
+1256,Patron,Victim Characteristics
+1257,Victim is Newborn-5 years old,Victim Characteristics
+1258,Victim is 6 years old thru 13 years old,Victim Characteristics
+1259,Victim is 14 years old thru 17 years old,Victim Characteristics
+1260,Deaf/Hearing Impaired,Victim Characteristics
+1261,Victim was mentally challenged/mentally disabled,Victim Characteristics
+1262,Raped while unconscious,Victim Characteristics
+1263,Agricultural Target,Victim Characteristics
+1264,Pipeline,Victim Characteristics
+1265,Mailbox,Victim Characteristics
+1266,Victim was security guard,Victim Characteristics
+1267,Home under construction,Victim Characteristics
+1268,Victim was 5150/Mental Illness,Victim Characteristics
+1269,Victim was armored car driver,Victim Characteristics
+1270,Victim was gang member,Victim Characteristics
+1271,Victim was Law Enforcement (not LAPD),Victim Characteristics
+1272,Victim was at/leaving medical/retail/non-retail cannabis location,Victim Characteristics
+1273,Home was being fumigated,Victim Characteristics
+1274,Victim was Inmate/Incarcerated,Victim Characteristics
+1275,Vacant Residence/Building,Victim Characteristics
+1276,Pregnant,Victim Characteristics
+1277,Gardner,Victim Characteristics
+1278,Victim was Uber/Lyft driver,Victim Characteristics
+1279,Victim was Foster child,Victim Characteristics
+1280,Victim was Foster parent,Victim Characteristics
+1281,Victim was Pistol-whipped,Victim Characteristics
+1300,Vehicle involved,Vehicle
+1301,Forced victim vehicle to curb,Vehicle
+1302,Suspect forced way into victim's vehicle,Vehicle
+1303,Hid in rear seat,Vehicle
+1304,Stopped victim vehicle by flagging down/forcing T/A/etc.,Vehicle
+1305,Victim forced into vehicle,Vehicle
+1306,Victim parking/garaging vehicle,Vehicle
+1307,Breaks window,Vehicle
+1308,Drives by and snatches property,Vehicle
+1309,Susp uses vehicle,Vehicle
+1310,Victim in vehicle,Vehicle
+1311,Victim removed from vehicle,Vehicle
+1312,Suspect follows victim in vehicle,Vehicle
+1313,Suspect exits vehicle and attacks pedestrian,Vehicle
+1314,Victim loading vehicle,Vehicle
+1315,Victim unloading vehicle,Vehicle
+1316,Victim entering their vehicle,Vehicle
+1317,Victim exiting their vehicle,Vehicle
+1318,Suspect follows victim home,Vehicle
+1401,Blood Stains,Evidence
+1402,Evidence Booked (any crime),Evidence
+1403,Fingerprints,Evidence
+1404,Footprints,Evidence
+1405,Left Note,Evidence
+1406,Tool Marks,Evidence
+1407,Bullets/Casings,Evidence
+1408,Bite Marks,Evidence
+1409,Clothes,Evidence
+1410,Gun Shot Residue,Evidence
+1411,Hair,Evidence
+1412,Jewelry,Evidence
+1413,Paint,Evidence
+1414,Photographs,Evidence
+1415,Rape Kit,Evidence
+1416,Saliva,Evidence
+1417,Semen,Evidence
+1418,Skeleton/Bones,Evidence
+1419,Firearm booked as evidence,Evidence
+1420,Video surveillance booked/available,Evidence
+1501,Other MO (see rpt),Other
+1505,Bias: Mental Disability,Bias
+1506,Bias: Physical disability,Bias
+1507,Bias: Anti-female,Bias
+1508,Bias: Anti-male,Bias
+1509,Bias: Anti-Gender non-conforming,Bias
+1510,Bias: Anti-Transgender,Bias
+1511,Bias: Anti-American/Alaskan Native,Bias
+1512,Bias: Anti-Arab,Bias
+1513,Bias: Anti-Asian,Bias
+1514,Bias: Anti-Black or African American,Bias
+1515,Bias: Anti-Citizenship Status,Bias
+1516,Bias: Anti-Hispanic or Latino,Bias
+1517,Bias: Anti-Multiple Races (Group),Bias
+1518,Bias: Anti-Native Hawaiian or Other Pacific Islander,Bias
+1519,Bias: Anti-Other Race/Ethnicity/Ancestry,Bias
+1520,Bias: Anti-White,Bias
+1521,Bias: Anti-Atheism/Agnosticism,Bias
+1522,Bias: Anti-Buddhist,Bias
+1523,Bias: Anti-Catholic,Bias
+1524,Bias: Anti-Eastern Orthodox (Russian/Greek/Other),Bias
+1525,Bias: Anti-Hindu,Bias
+1526,Bias: Anti-Islamic (Muslim),Bias
+1527,Bias: Anti-Jehovah's Witness,Bias
+1528,Bias: Anti-Jewish,Bias
+1529,Bias: Anti-Mormon,Bias
+1530,Bias: Anti-Multiple Religions Group,Bias
+1531,Bias: Anti-Other Christian,Bias
+1532,Bias: Anti-Other Religion,Bias
+1533,Bias: Anti-Protestant,Bias
+1534,Bias: Anti-Sikh,Bias
+1535,Bias: Anti-Bisexual,Bias
+1536,Bias: Anti-Gay (Male),Bias
+1537,Bias: Anti-Heterosexual,Bias
+1538,Bias: Anti-Lesbian,Bias
+1539,Bias: Anti-Lesbian/Gay/Bisexual or Transgender (Mixed Group),Bias
+1601,Bodily Force,Entry Method
+1602,Cutting Tool,Entry Method
+1603,Knob Twist,Entry Method
+1604,Lock Box,Entry Method
+1605,Lock slip/key/pick,Entry Method
+1606,Open/unlocked,Entry Method
+1607,Pried,Entry Method
+1608,Removed,Entry Method
+1609,Smashed,Entry Method
+1610,Tunneled,Entry Method
+1611,Shaved Key,Entry Method
+1612,Punched/Pulled Door Lock,Entry Method
+1701,Elder Abuse/Physical,Elder Abuse
+1702,Elder Abuse/Financial,Elder Abuse
+1801,Susp is/was mother's boyfriend,Suspect/Victim Relationship
+1802,Susp is/was victim's co-worker,Suspect/Victim Relationship
+1803,Susp is/was victim's employee,Suspect/Victim Relationship
+1804,Susp is/was victim's employer,Suspect/Victim Relationship
+1805,Susp is/was fellow gang member,Suspect/Victim Relationship
+1806,Susp is/was father's girlfriend,Suspect/Victim Relationship
+1807,Susp is/was priest/pastor,Suspect/Victim Relationship
+1808,Susp is/was other religious confidant,Suspect/Victim Relationship
+1809,Susp is/was rival gang member,Suspect/Victim Relationship
+1810,Susp is/was roommate,Suspect/Victim Relationship
+1811,Susp is/was victim's teacher/coach,Suspect/Victim Relationship
+1812,Susp is/was foster parent/sibling,Suspect/Victim Relationship
+1813,Susp is/was current/former spouse/co-habitant,Suspect/Victim Relationship
+1814,Susp is/was current/former boyfriend/girlfriend,Suspect/Victim Relationship
+1815,Susp was student,Suspect/Victim Relationship
+1816,Suspect is/was known gang member,Suspect/Victim Relationship
+1817,Acquaintance,Suspect/Victim Relationship
+1818,Caretaker/care-giver/nanny,Suspect/Victim Relationship
+1819,Common-law Spouse,Suspect/Victim Relationship
+1820,Friend,Suspect/Victim Relationship
+1821,Spouse,Suspect/Victim Relationship
+1822,Stranger,Suspect/Victim Relationship
+1823,Brief encounter/Date,Suspect/Victim Relationship
+1824,Classmate,Suspect/Victim Relationship
+1900,Auction Fraud/eBay/craigslist/etc. (Internet based theft),Cybercrime
+1901,Child Pornography/In possession of/Via computer,Cybercrime
+1902,Credit Card Fraud/Theft of services via internet,Cybercrime
+1903,Cyberstalking (Stalking using internet to commit the crime),Cybercrime
+1904,Denial of computer services,Cybercrime
+1905,Destruction of computer data,Cybercrime
+1906,Harrassing E-Mail/Text Message/Other Electronic Communications,Cybercrime
+1907,Hate Crime materials/printouts/e-mails,Cybercrime
+1908,Identity Theft via computer,Cybercrime
+1909,Introduction of virus or contaminants into computer system/program,Cybercrime
+1910,Minor solicited for sex via internet/Known minor,Cybercrime
+1911,Theft of computer data,Cybercrime
+1912,Threatening E-mail/Text Messages,Cybercrime
+1913,Suspect meets victim on internet/chatroom,Cybercrime
+1914,Unauthorized access to computer system,Cybercrime
+1915,Internet Extortion,Cybercrime
+1916,Victim paid by wire transfer,Cybercrime
+2000,Domestic violence,Suspect Characteristics
+2001,Suspect on drugs,Suspect Characteristics
+2002,Suspect intoxicated/drunk,Suspect Characteristics
+2003,Suspect was 5150/mentally disabled,Suspect Characteristics
+2004,Suspect is homeless/transient,Suspect Characteristics
+2005,Suspect uses wheelchair,Suspect Characteristics
+2006,Suspect was transgender,Suspect Characteristics
+2007,Suspect was gay,Suspect Characteristics
+2008,In possession of a Ballistic vest,Suspect Characteristics
+2009,Suspect was Inmate/Incarcerated,Suspect Characteristics
+2010,Suspect was Jailer/Police Officer,Suspect Characteristics
+2011,Vendor (street or sidewalk),Suspect Characteristics
+2012,Suspect was costumed character (e.g. Barney/Darth Vader/Spiderman/etc.),Suspect Characteristics
+2013,Tour Bus/Van Operator,Suspect Characteristics
+2014,Suspect was Uber/Lyft driver,Suspect Characteristics
+2015,Suspect was Foster child,Suspect Characteristics
+2016,Suspect was Train Operator,Suspect Characteristics
+2017,Suspect was MTA Bus Driver,Suspect Characteristics
+2018,Cannabis related,Suspect Characteristics
+2019,Theft of animal (non-livestock),Suspect Characteristics
+2020,Mistreatment of animal,Suspect Characteristics
+2021,Suspect was Aged (60+over),Suspect Characteristics
+2022,Suspect was Hitchhiker,Suspect Characteristics
+2023,Suspect was Prostitute,Suspect Characteristics
+2024,Suspect was Juvenile,Suspect Characteristics
+2025,Suspect was Bisexual,Suspect Characteristics
+2026,Suspect was Deaf/hearing impaired,Suspect Characteristics
+2027,Suspect was Pregnant,Suspect Characteristics
+2028,Suspect was Repeat/known shoplifter,Suspect Characteristics
+2029,Victim used profanity,Suspect Characteristics
+2030,Victim used racial slurs,Suspect Characteristics
+2031,Victim used hate-related language,Suspect Characteristics
+2032,Victim left property unattended,Suspect Characteristics
+2033,Victim refused to cooperate w/investigation,Suspect Characteristics
+2034,Victim was asleep/unconscious,Suspect Characteristics
+2035,Racial slurs,Suspect Characteristics
+2036,Hate-related language,Suspect Characteristics
+2037,Temporary/Vacation rental (AirBnB/etc),Suspect Characteristics
+2038,Restraining order in place between suspect and victim,Suspect Characteristics
+2039,Victim was costumed character (e.g. Barney/Darth Vader/Spiderman/etc.),Suspect Characteristics
+2040,Threats via Social Media,Suspect Characteristics
+2041,Harassment via Social Media,Suspect Characteristics
+2042,Victim staying at short-term vacation rental,Suspect Characteristics
+2043,Victim is owner of short-term vacation rental,Suspect Characteristics
+2044,Suspect staying at short-term vacation rental,Suspect Characteristics
+2045,Suspect is owner of short-term vacation rental,Suspect Characteristics
+2046,Suspect damaged property equal to or exceeding $25,000,Suspect Characteristics
+2047,Victim was injured requiring transportation away from scene for medical reasons,Suspect Characteristics
+2048,Victim was on transit platform,Suspect Characteristics
+2049,Victim was passenger on bus,Suspect Characteristics
+2050,Victim was passenger on train,Suspect Characteristics
+2051,Suspect was passenger on bus,Suspect Characteristics
+2052,Suspect was passenger on train,Suspect Characteristics
+2053,Victim targeted based on religion,Suspect Characteristics
+2054,Victim targeted based on sexual orientation,Suspect Characteristics
+2055,Victim targeted based on Race/Ethnicity/Ancestry,Suspect Characteristics
+2056,Victim targeted based on gender,Suspect Characteristics
+2057,Victim targeted based on disability,Suspect Characteristics
+2058,Victim targeted based on Gender Non-conforming,Suspect Characteristics
+2059,Vict rptd sexual assault at time of arst for unrelated incident,Suspect Characteristics
+2060,Victim inside tent,Suspect Characteristics
+2100,Observation/Surveillance,Suspicious Activity (SAR)
+2101,Counter Surveillance efforts,Suspicious Activity (SAR)
+2102,Questions about security procedures,Suspicious Activity (SAR)
+2103,Appears to take measurements,Suspicious Activity (SAR)
+2104,Photography (pics or video footage),Suspicious Activity (SAR)
+2105,Draws diagrams or takes notes,Suspicious Activity (SAR)
+2106,Abandons suspicious package/item,Suspicious Activity (SAR)
+2107,Abandons vehicle restricted area,Suspicious Activity (SAR)
+2108,Enters restricted area w/o authorization,Suspicious Activity (SAR)
+2109,Testing or Probing of Security,Suspicious Activity (SAR)
+2110,Contraband at security check point,Suspicious Activity (SAR)
+2111,Susp purchase of legal materials,Suspicious Activity (SAR)
+2112,Acquires restricted items/information,Suspicious Activity (SAR)
+2113,Acquires illegal explosive/precur agents,Suspicious Activity (SAR)
+2114,Acquires illegal chemical agent,Suspicious Activity (SAR)
+2115,Acquires illegal biological agents,Suspicious Activity (SAR)
+2116,Acquires illegal radiological material,Suspicious Activity (SAR)
+2117,Uses explosives for illegal purposes,Suspicious Activity (SAR)
+2118,Uses chemical agent illegally,Suspicious Activity (SAR)
+2119,Uses biological agent illegally,Suspicious Activity (SAR)
+2120,Uses radiological material illegally,Suspicious Activity (SAR)
+2121,Acquires uniforms without legit reason,Suspicious Activity (SAR)
+2122,Acquires official vehicle without legit reason,Suspicious Activity (SAR)
+2123,Pursues training/education with suspect motives,Suspicious Activity (SAR)
+2124,Large unexplained sum of currency,Suspicious Activity (SAR)
+2125,Multiple passports/ID's/travel documents,Suspicious Activity (SAR)
+2126,Expressed or Implied threats,Suspicious Activity (SAR)
+2127,Brags about affiliation with extremist organization,Suspicious Activity (SAR)
+2128,Coded conversation or transmission,Suspicious Activity (SAR)
+2129,Overt support of terrorist network,Suspicious Activity (SAR)
+2130,Uses Facsimile/Hoax explosive device (susp offer/solicts),Suspicious Activity (SAR)
+2131,Uses Facsimile/Hoax dispersal device (susp offer/solicts),Suspicious Activity (SAR)
+2135,Sensitive event schedules (susp offer/solicts),Suspicious Activity (SAR)
+2136,VIP appearance or travel schedules (susp offer/solicts),Suspicious Activity (SAR)
+2137,Security schedules (susp offer/solicts),Suspicious Activity (SAR)
+2138,Blueprints/building plans (susp offer/solicts),Suspicious Activity (SAR)
+2139,Evacuation or emergency plans (susp offer/solicts),Suspicious Activity (SAR)
+2140,Security plans (susp offer/solicts),Suspicious Activity (SAR)
+2141,Weapons or ammunition (susp offer/solicts),Suspicious Activity (SAR)
+2142,Explosive materials (susp offer/solicts),Suspicious Activity (SAR)
+2143,Illicit chemical agents (susp offer/solicts),Suspicious Activity (SAR)
+2144,Illicit biological agents (susp offer/solicts),Suspicious Activity (SAR)
+2145,Illicit radiological material (susp offer/solicts),Suspicious Activity (SAR)
+2146,Other sensitive materials (susp offer/solicts),Suspicious Activity (SAR)
+2150,Coded/ciphered literature/correspondence,Suspicious Activity (SAR)
+2151,Sensitive event schedules (susp in possession),Suspicious Activity (SAR)
+2152,VIP appearance or travel schedules (susp in possession),Suspicious Activity (SAR)
+2153,Security schedules (susp in possession),Suspicious Activity (SAR)
+2154,Blueprints/building plans (susp in possession),Suspicious Activity (SAR)
+2155,Evacuation or emergency plans (susp in possession),Suspicious Activity (SAR)
+2156,Security plans (susp in possession),Suspicious Activity (SAR)
+2157,Weapons or ammunition (susp in possession),Suspicious Activity (SAR)
+2158,Explosive materials (susp in possession),Suspicious Activity (SAR)
+2159,Illicit chemical agents (susp in possession),Suspicious Activity (SAR)
+2160,Illicit biological agents (susp in possession),Suspicious Activity (SAR)
+2161,Illicit radiological material (susp in possession),Suspicious Activity (SAR)
+2162,Other sensitive materials (susp in possession),Suspicious Activity (SAR)
+2163,Facsimile/Hoax explosive device (susp in possession),Suspicious Activity (SAR)
+2164,Facsimile/Hoax dispersal device (susp in possession),Suspicious Activity (SAR)
+2170,Associates with known/susp terrorist,Suspicious Activity (SAR)
+2171,Corresponds w/suspected terrorist,Suspicious Activity (SAR)
+2172,In photos w/suspected terrorists,Suspicious Activity (SAR)
+2173,Organization supports overthrow/violent acts,Suspicious Activity (SAR)
+2180,Bomb/explosive device,Suspicious Activity (SAR)
+2181,Biological agent,Suspicious Activity (SAR)
+2182,Chemical agent,Suspicious Activity (SAR)
+2183,Radiological matter,Suspicious Activity (SAR)
+2184,Military ordinance,Suspicious Activity (SAR)
+2185,Incendiary device,Suspicious Activity (SAR)
+2186,Pyrotechnics,Suspicious Activity (SAR)
+2187,Facsimile/Hoax device,Suspicious Activity (SAR)
+2190,Financing terrorism,Suspicious Activity (SAR)
+2191,Victim's religion,Suspicious Activity (SAR)
+2192,Victim's national origin,Suspicious Activity (SAR)
+2193,Influencing societal action,Suspicious Activity (SAR)
+2194,Furthering objectives by force,Suspicious Activity (SAR)
+2197,SSI - Food/Agriculture,Suspicious Activity (SAR)
+2198,Pipeline,Suspicious Activity (SAR)
+2199,SSI - Postal/Shipping/Mailbox,Suspicious Activity (SAR)
+2200,SSI - Government Facilities/Bldg.,Suspicious Activity (SAR)
+2201,Church,Suspicious Activity (SAR)
+2202,Synagogue,Suspicious Activity (SAR)
+2203,University,Suspicious Activity (SAR)
+2204,School,Suspicious Activity (SAR)
+2205,Sports Venue,Suspicious Activity (SAR)
+2206,Theater,Suspicious Activity (SAR)
+2207,Amusement Park,Suspicious Activity (SAR)
+2208,Shopping Mall,Suspicious Activity (SAR)
+2209,Convention Center,Suspicious Activity (SAR)
+2210,Mass Gathering Location,Suspicious Activity (SAR)
+2211,Bridge,Suspicious Activity (SAR)
+2212,High-Rise Building,Suspicious Activity (SAR)
+2213,Airport,Suspicious Activity (SAR)
+2214,Freight Train,Suspicious Activity (SAR)
+2215,Train Tracks,Suspicious Activity (SAR)
+2216,SSI - Chemical storage/Manufacturing plant,Suspicious Activity (SAR)
+2217,SSI - Telecommunication Facility/Location,Suspicious Activity (SAR)
+2218,SSI - Energy Plant/Facility,Suspicious Activity (SAR)
+2219,SSI - Water Facility,Suspicious Activity (SAR)
+2220,Sewage Facility/Pipe,Suspicious Activity (SAR)
+2221,SSI - Nuclear Facility/Reactors/Materials & Waste,Suspicious Activity (SAR)
+2222,SSI - Dam/Reservoir,Suspicious Activity (SAR)
+2223,SSI - National Monuments/Icon/Cultural significance,Suspicious Activity (SAR)
+2224,Tactical significance,Suspicious Activity (SAR)
+2225,SSI - Healthcare & Public Health/Hospital/Medical Clinic,Suspicious Activity (SAR)
+2226,Abortion clinic,Suspicious Activity (SAR)
+2227,SSI - Defense Industrial Base/Facility,Suspicious Activity (SAR)
+2228,SSI - Transportation System,Suspicious Activity (SAR)
+2229,SSI - Commercial Facilities,Suspicious Activity (SAR)
+2230,SSI - Information Technology,Suspicious Activity (SAR)
+2231,SSI - Banking and Finance,Suspicious Activity (SAR)
+2232,SSI - Critical Manufacturing,Suspicious Activity (SAR)
+2233,SSI - Emergency Services,Suspicious Activity (SAR)
+2234,SSI - Waste,Suspicious Activity (SAR)
+2301,Breach/Attempted Intrusion,Suspicious Activity (SAR)
+2302,Misrepresentation,Suspicious Activity (SAR)
+2303,Theft/Loss/Diversion,Suspicious Activity (SAR)
+2304,Sabotage/Tampering/Vandalism,Suspicious Activity (SAR)
+2305,Cyber Attack,Suspicious Activity (SAR)
+2306,Espouses violent extremist views,Suspicious Activity (SAR)
+2307,Aviation activity,Suspicious Activity (SAR)
+2308,Eliciting information,Suspicious Activity (SAR)
+2309,Recruiting,Suspicious Activity (SAR)
+2310,Materials,Suspicious Activity (SAR)
+2311,Acquisition of expertise,Suspicious Activity (SAR)
+2312,Weapons discovery,Suspicious Activity (SAR)
+2313,Finance,Suspicious Activity (SAR)
+2314,TSC hit,Suspicious Activity (SAR)
+2315,Sector-Specific Incident (SSI),Suspicious Activity (SAR)
+3001,T/C - Veh vs Non-collision,Traffic Collision (CAD)
+3002,T/C - Officer Involved T/C,Traffic Collision (CAD)
+3003,T/C - Veh vs Ped,Traffic Collision (CAD)
+3004,T/C - Veh vs Veh,Traffic Collision (CAD)
+3005,T/C - Veh vs Veh on other roadway,Traffic Collision (CAD)
+3006,T/C - Veh vs Parked Veh,Traffic Collision (CAD)
+3007,T/C - Veh vs Train,Traffic Collision (CAD)
+3008,T/C - Veh vs Bike,Traffic Collision (CAD)
+3009,T/C - Veh vs M/C,Traffic Collision (CAD)
+3010,T/C - Veh vs Animal,Traffic Collision (CAD)
+3011,T/C - Veh vs Fixed Object,Traffic Collision (CAD)
+3012,T/C - Veh vs Other Object,Traffic Collision (CAD)
+3013,T/C - M/C vs Veh,Traffic Collision (CAD)
+3014,T/C - M/C vs Fixed Object,Traffic Collision (CAD)
+3015,T/C - M/C vs Other,Traffic Collision (CAD)
+3016,T/C - Bike vs Veh,Traffic Collision (CAD)
+3017,T/C - Bike vs Train,Traffic Collision (CAD)
+3018,T/C - Bike vs Other,Traffic Collision (CAD)
+3019,T/C - Train vs Veh,Traffic Collision (CAD)
+3020,T/C - Train vs Train,Traffic Collision (CAD)
+3021,T/C - Train vs Bike,Traffic Collision (CAD)
+3022,T/C - Train vs Ped,Traffic Collision (CAD)
+3023,T/C - Train vs Fixed Object,Traffic Collision (CAD)
+3024,T/C - (A) Severe Injury,Traffic Collision (CAD)
+3025,T/C - (B) Visible Injury,Traffic Collision (CAD)
+3026,T/C - (C) Complaint of Injury,Traffic Collision (CAD)
+3027,T/C - (K) Fatal Injury,Traffic Collision (CAD)
+3028,T/C - (N) Non Injury,Traffic Collision (CAD)
+3029,T/C - Hit and Run Fel,Traffic Collision (CAD)
+3030,T/C - Hit and Run Misd,Traffic Collision (CAD)
+3032,T/C - Private Property - Yes,Traffic Collision (CAD)
+3033,T/C - Private Property - No,Traffic Collision (CAD)
+3034,T/C - City Property Involved - Yes,Traffic Collision (CAD)
+3035,T/C - City Property Involved - No,Traffic Collision (CAD)
+3036,T/C - At Intersection - Yes,Traffic Collision (CAD)
+3037,T/C - At Intersection - No,Traffic Collision (CAD)
+3038,T/C - DUI Felony,Traffic Collision (CAD)
+3039,T/C - DUI Misdemeanor,Traffic Collision (CAD)
+3040,T/C - Resulting from Street Racing/Speed Exhibition,Traffic Collision (CAD)
+3062,T/C - Bicyclist in Bicycle Lane,Traffic Collision (CAD)
+3063,T/C - E-Bike,Traffic Collision (CAD)
+3064,T/C - Motorized Scooter,Traffic Collision (CAD)
+3101,T/C - PCF (A) In the Narrative,Traffic Collision (CAD)
+3102,T/C - PCF (B) Other Improper Driving,Traffic Collision (CAD)
+3103,T/C - PCF (C) Other Than Driver,Traffic Collision (CAD)
+3104,T/C - PCF (D) Unk,Traffic Collision (CAD)
+3201,T/C - Weather/Lighting/Roadway,Traffic Collision (CAD)
+3301,T/C - Traffic Control Devices,Traffic Collision (CAD)
+3401,T/C - Type of Collision,Traffic Collision (CAD)
+3501,T/C - Ped Actions,Traffic Collision (CAD)
+3601,T/C - Special Information and Other,Traffic Collision (CAD)
+3602,T/C - Unlicensed motorist,Traffic Collision (CAD)
+3603,T/C - Bicyclists colliding into opened vehicle door,Traffic Collision (CAD)
+3701,T/C - Movement Preceding Collision,Traffic Collision (CAD)
+3801,T/C - Sobriety,Traffic Collision (CAD)
+3901,T/C - Safety Equipment,Traffic Collision (CAD)
+4001,T/C - Central,Traffic Collision - Division (CAD)
+4002,T/C - Rampart,Traffic Collision - Division (CAD)
+4003,T/C - Southwest,Traffic Collision - Division (CAD)
+4004,T/C - Hollenbeck,Traffic Collision - Division (CAD)
+4005,T/C - Harbor,Traffic Collision - Division (CAD)
+4006,T/C - Hollywood,Traffic Collision - Division (CAD)
+4007,T/C - Wilshire,Traffic Collision - Division (CAD)
+4008,T/C - West Los Angeles,Traffic Collision - Division (CAD)
+4009,T/C - Van Nuys,Traffic Collision - Division (CAD)
+4010,T/C - West Valley,Traffic Collision - Division (CAD)
+4011,T/C - Northeast,Traffic Collision - Division (CAD)
+4012,T/C - 77th,Traffic Collision - Division (CAD)
+4013,T/C - Newton,Traffic Collision - Division (CAD)
+4014,T/C - Pacific,Traffic Collision - Division (CAD)
+4015,T/C - North Hollywood,Traffic Collision - Division (CAD)
+4016,T/C - Foothill,Traffic Collision - Division (CAD)
+4017,T/C - Devonshire,Traffic Collision - Division (CAD)
+4018,T/C - Southeast,Traffic Collision - Division (CAD)
+4019,T/C - Mission,Traffic Collision - Division (CAD)
+4020,T/C - Olympic,Traffic Collision - Division (CAD)
+4021,T/C - Topanga,Traffic Collision - Division (CAD)
+4024,T/C - Central Traffic (CTD),Traffic Collision - Division (CAD)
+4025,T/C - South Traffic (STD),Traffic Collision - Division (CAD)
+4026,T/C - Valley Traffic (VTD),Traffic Collision - Division (CAD)
+4027,T/C - West Traffic (WTD),Traffic Collision - Division (CAD)
+9999,Indistinctive MO,Other
